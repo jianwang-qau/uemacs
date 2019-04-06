@@ -166,6 +166,7 @@ void vtmove(int row, int col)
  */
 static void vtputc(int c)
 {
+	int ncol;
 	struct video *vp;	/* ptr to line being updated */
 
 	/* In case somebody passes us a signed char.. */
@@ -175,11 +176,13 @@ static void vtputc(int c)
 			return;
 	}
 
+	ncol = char_width(c);
 	vp = vscreen[vtrow];
 
 	if (vtcol >= term.t_ncol) {
-		++vtcol;
-		vp->v_text[term.t_ncol - 1] = '$';
+		vtcol += ncol;
+		if (vp->v_text[term.t_ncol - 1] != '\0')
+			vp->v_text[term.t_ncol - 1] = '$';
 		return;
 	}
 
@@ -210,9 +213,13 @@ static void vtputc(int c)
 		return;
 	}
 	
-	if (vtcol >= 0)
+	if (vtcol >= 0) {
 		vp->v_text[vtcol] = c;
-	++vtcol;
+		if (ncol == 2) {
+			vp->v_text[vtcol + 1] = '\0';
+		}
+	}
+	vtcol += ncol;
 }
 
 /*
@@ -549,7 +556,7 @@ void updpos(void)
 		if (c == '\t')
 			curcol |= tabmask;
 
-		++curcol;
+		curcol += char_width(c);
 	}
 
 	/* if extended, flag so and update the virtual line image */
@@ -949,7 +956,7 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 	int nbflag;	/* non-blanks to the right flag? */
 	int rev;		/* reverse video flag */
 	int req;		/* reverse video request flag */
-
+	int ncol = 0;
 
 	/* set up pointers to virtual and physical lines */
 	cp1 = &vp1->v_text[0];
@@ -980,8 +987,10 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 		   the virtual screen array                             */
 		cp3 = &vp1->v_text[term.t_ncol];
 		while (cp1 < cp3) {
-			TTputc(*cp1);
-			++ttcol;
+			if (*cp1 != '\0') {
+				TTputc(*cp1);
+				ttcol += char_width(*cp1);
+			}
 			*cp2++ = *cp1++;
 		}
 		/* turn rev video off */
@@ -1004,6 +1013,8 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 
 	/* advance past any common chars at the left */
 	while (cp1 != &vp1->v_text[term.t_ncol] && cp1[0] == cp2[0]) {
+		if (cp1[0] != '\0')
+			ncol += char_width(cp1[0]);
 		++cp1;
 		++cp2;
 	}
@@ -1043,14 +1054,16 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 			cp5 = cp3;	/* fewer characters. */
 	}
 
-	movecursor(row, cp1 - &vp1->v_text[0]);	/* Go to start of line. */
+	movecursor(row, ncol);	/* Go to start of line. */
 #if	REVSTA
 	TTrev(rev);
 #endif
 
 	while (cp1 != cp5) {	/* Ordinary. */
-		TTputc(*cp1);
-		++ttcol;
+		if (*cp1 != '\0') {
+			TTputc(*cp1);
+			ttcol += char_width(*cp1);
+		}
 		*cp2++ = *cp1++;
 	}
 
