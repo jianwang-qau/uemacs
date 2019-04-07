@@ -138,11 +138,7 @@ int getccol(int bflg)
 			break;
 		if (c == '\t')
 			col |= tabmask;
-		else if (c < 0x20 || c == 0x7F)
-			++col;
-		else if (c >= 0xc0 && c <= 0xa0)
-			col += 2;
-		++col;
+		col += char_width(c);
 	}
 	return col;
 }
@@ -172,9 +168,7 @@ int setccol(int pos)
 		c = lgetc(curwp->w_dotp, i);
 		if (c == '\t')
 			col |= tabmask;
-		else if (c < 0x20 || c == 0x7F)
-			++col;
-		++col;
+		col += char_width(c);
 	}
 
 	/* set us at the new position */

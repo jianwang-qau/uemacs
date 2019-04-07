@@ -242,6 +242,8 @@
 #define CTLX    0x40000000	/* ^X flag, or'ed in            */
 #define	SPEC	0x80000000	/* special key (function keys)  */
 
+#define HIDECH	0x10FFFD	/* private char in PUA, for display */
+
 #ifdef	FALSE
 #undef	FALSE
 #endif

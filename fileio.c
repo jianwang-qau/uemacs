@@ -114,7 +114,7 @@ int ffputline(char *buf, int nbuf)
  * at the end of the file that don't have a newline present. Check for I/O
  * errors too. Return status.
  */
-int ffgetline(void)
+int ffgetline(int *res)
 {
 	int c;		/* current character read */
 	int i;		/* current index into fline */
@@ -159,7 +159,7 @@ int ffgetline(void)
 	while ((c = fgetc(ffp)) != EOF && c != '\n') {
 #endif
 #if	PKCODE
-		if (c) {
+		if (c || nullflag) {
 #endif
 			fline[i++] = c;
 			/* if it's longer, get more room */
@@ -193,6 +193,7 @@ int ffgetline(void)
 
 	/* terminate and decrypt the string */
 	fline[i] = 0;
+	*res = i;
 #if	CRYPT
 	if (cryptflag)
 		myencrypt(fline, strlen(fline));

@@ -179,9 +179,9 @@ static void vtputc(int c)
 	ncol = char_width(c);
 	vp = vscreen[vtrow];
 
-	if (vtcol >= term.t_ncol) {
+	if (vtcol + ncol > term.t_ncol) {
 		vtcol += ncol;
-		if (vp->v_text[term.t_ncol - 1] != '\0')
+		if (vp->v_text[term.t_ncol - 1] != HIDECH)
 			vp->v_text[term.t_ncol - 1] = '$';
 		return;
 	}
@@ -193,19 +193,19 @@ static void vtputc(int c)
 		return;
 	}
 
-	if (c < 0x20) {
+	if (c < 0x20) { // C0
 		vtputc('^');
 		vtputc(c ^ 0x40);
 		return;
 	}
 
-	if (c == 0x7f) {
+	if (c == 0x7f) { // C0
 		vtputc('^');
 		vtputc('?');
 		return;
 	}
 
-	if (c >= 0x80 && c <= 0xA0) {
+	if (c >= 0x80 && c <= 0x9f) { // C1
 		static const char hex[] = "0123456789abcdef";
 		vtputc('\\');
 		vtputc(hex[c >> 4]);
@@ -216,7 +216,7 @@ static void vtputc(int c)
 	if (vtcol >= 0) {
 		vp->v_text[vtcol] = c;
 		if (ncol == 2) {
-			vp->v_text[vtcol + 1] = '\0';
+			vp->v_text[vtcol + 1] = HIDECH;
 		}
 	}
 	vtcol += ncol;
@@ -555,7 +555,6 @@ void updpos(void)
 		i += bytes;
 		if (c == '\t')
 			curcol |= tabmask;
-
 		curcol += char_width(c);
 	}
 
@@ -987,7 +986,7 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 		   the virtual screen array                             */
 		cp3 = &vp1->v_text[term.t_ncol];
 		while (cp1 < cp3) {
-			if (*cp1 != '\0') {
+			if (*cp1 != HIDECH) {
 				TTputc(*cp1);
 				ttcol += char_width(*cp1);
 			}
@@ -1013,7 +1012,7 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 
 	/* advance past any common chars at the left */
 	while (cp1 != &vp1->v_text[term.t_ncol] && cp1[0] == cp2[0]) {
-		if (cp1[0] != '\0')
+		if (cp1[0] != HIDECH)
 			ncol += char_width(cp1[0]);
 		++cp1;
 		++cp2;
@@ -1060,7 +1059,7 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 #endif
 
 	while (cp1 != cp5) {	/* Ordinary. */
-		if (*cp1 != '\0') {
+		if (*cp1 != HIDECH) {
 			TTputc(*cp1);
 			ttcol += char_width(*cp1);
 		}

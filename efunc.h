@@ -225,7 +225,7 @@ extern int ffropen(char *fn);
 extern int ffwopen(char *fn);
 extern int ffclose(void);
 extern int ffputline(char *buf, int nbuf);
-extern int ffgetline(void);
+extern int ffgetline(int *res);
 extern int fexist(char *fname);
 
 /* exec.c */

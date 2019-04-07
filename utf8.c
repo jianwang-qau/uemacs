@@ -119,8 +119,12 @@ int char_width(unsigned int c)
 {
 	int i;
 
-	if (c == 0xe || c == 0xf)
-		return 0;
+	if (c == '\t')
+		return 1;
+	if (c < 0x20 || c == 0x7f) // C0
+		return 2;
+	if (c >= 0x80 && c <= 0x9f) // C1
+		return 3;
 
 	for (i = 0; i < WIDTH_ROW; i++) {
 		if (c <= widths[i][0])
