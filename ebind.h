@@ -396,6 +396,10 @@ struct key_tab keytab[NBINDS] = {
 	,
 	{SPEC | 'D', backchar}
 	,
+	{SPEC | 'F', gotoeol}
+	,
+	{SPEC | 'H', gotobol}
+	,
 	{SPEC | 'c', metafn}
 	,
 	{SPEC | 'd', backchar}
