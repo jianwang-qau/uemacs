@@ -130,16 +130,16 @@
 #define	CTRLZ	0  /* add a ^Z at end of files under MSDOS only    */
 #define ADDCR	0  /* ajout d'un CR en fin de chaque ligne (ST520) */
 #define	NBRACE	1  /* new style brace matching command             */
-#define	REVSTA	1  /* Status line appears in reverse video         */
+#define	REVSTA	0  /* Status line appears in reverse video         */
+
+#define	COLOR	1  /* color commands and windows                   */
 
 #ifndef	AUTOCONF
 
-#define	COLOR	1  /* color commands and windows                   */
 #define	FILOCK	0  /* file locking under unix BSD 4.2              */
 
 #else
 
-#define	COLOR	MSDOS
 #ifdef  SVR4
 #define FILOCK  1
 #else
@@ -237,12 +237,32 @@
 #define	NCOLORS	8		/* number of supported colors   */
 #define	KBLOCK	250		/* sizeof kill buffer chunks    */
 
+/* supported colors */
+
+#define CLR_BLACK	0x000000
+#define CLR_DARK_RED	0x800000
+#define CLR_DARK_GREEN	0x008000
+#define CLR_BROWN	0x808000
+#define CLR_DARK_BLUE	0x000080
+#define CLR_DARK_MAGENTA	0x800080
+#define CLR_DARK_CYAN	0x008080
+#define CLR_GRAY	0xC0C0C0
+#define CLR_DARK_GRAY	0x808080
+#define CLR_RED	0xFF0000
+#define CLR_GREEN	0x00FF00
+#define CLR_YELLOW	0xFFFF00
+#define CLR_BLUE	0x0000FF
+#define CLR_MAGENTA	0xFF00FF
+#define CLR_CYAN	0x00FFFF
+#define CLR_WHITE	0xFFFFFF
+
 #define CONTROL 0x10000000	/* Control flag, or'ed in       */
 #define META    0x20000000	/* Meta flag, or'ed in          */
 #define CTLX    0x40000000	/* ^X flag, or'ed in            */
 #define	SPEC	0x80000000	/* special key (function keys)  */
 
-#define HIDECH	0x10FFFD	/* private char in PUA, for display */
+#define PADCH	0x10FFFC	/* pad char for multibyte char */
+#define EOLCH	0x10FFFD	/* end char of line */
 
 #ifdef	FALSE
 #undef	FALSE
@@ -422,8 +442,8 @@ struct window {
 	char w_force;		/* If NZ, forcing row.          */
 	char w_flag;		/* Flags.                       */
 #if	COLOR
-	char w_fcolor;		/* current forground color      */
-	char w_bcolor;		/* current background color     */
+	int w_fcolor;		/* current forground color      */
+	int w_bcolor;		/* current background color     */
 #endif
 };
 
@@ -527,8 +547,8 @@ struct terminal {
 	void (*t_rev)(int);	/* set reverse video state      */
 	int (*t_rez)(char *);	/* change screen resolution     */
 #if	COLOR
-	int (*t_setfor) ();	/* set forground color          */
-	int (*t_setback) ();	/* set background color         */
+	void (*t_setfor) (int);	/* set forground color          */
+	void (*t_setback) (int);/* set background color         */
 #endif
 #if     SCROLLCODE
 	void (*t_scroll)(int, int,int);	/* scroll a region of the screen */
@@ -554,6 +574,9 @@ struct terminal {
 #if	COLOR
 #define	TTforg		(*term.t_setfor)
 #define	TTbacg		(*term.t_setback)
+#endif
+#if SCROLLCODE
+#define TTscroll	(*term.t_scroll)
 #endif
 
 /* Structure for the table of initial key bindings. */

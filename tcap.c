@@ -50,8 +50,8 @@ static void tcapclose(void);
 #endif
 
 #if COLOR
-static void tcapfcol(void);
-static void tcapbcol(void);
+static void tcapfcol(int rgb);
+static void tcapbcol(int rgb);
 #endif
 #if SCROLLCODE
 static void tcapscroll_reg(int from, int to, int linestoscroll);
@@ -61,6 +61,11 @@ static void tcapscroll_delins(int from, int to, int linestoscroll);
 #define TCAPSLEN 315
 static char tcapbuf[TCAPSLEN];
 static char *UP, PC, *CM, *CE, *CL, *SO, *SE;
+
+#if COLOR
+static char *T_8F = "\033[38;2;%lu;%lu;%lum";
+static char *T_8B = "\033[48;2;%lu;%lu;%lum";
+#endif
 
 #if PKCODE
 static char *TI, *TE;
@@ -334,13 +339,26 @@ static void tcapscrollregion(int top, int bot)
 #endif
 
 #if COLOR
-/* No colors here, ignore this. */
-static void tcapfcol(void)
+#define RED(rgb)	(((rgb) >> 16) & 0xFF)
+#define GREEN(rgb)	(((rgb) >>  8) & 0xFF)
+#define BLUE(rgb)	(((rgb)      ) & 0xFF)
+
+static void term_rgb_color(char *s, int rgb)
 {
+#define MAX_COLOR_STR_LEN 100
+	char buf[MAX_COLOR_STR_LEN];
+	snprintf(buf, MAX_COLOR_STR_LEN, s, RED(rgb), GREEN(rgb), BLUE(rgb));
+	putpad(buf);
 }
-/* No colors here, ignore this. */
-static void tcapbcol(void)
+
+static void tcapfcol(int rgb)
 {
+	term_rgb_color(T_8F, rgb);
+}
+
+static void tcapbcol(int rgb)
+{
+	term_rgb_color(T_8B, rgb);
 }
 #endif
 

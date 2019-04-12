@@ -24,8 +24,6 @@
 struct video {
 	int v_flag;		/* Flags */
 #if	COLOR
-	int v_fcolor;		/* current forground color */
-	int v_bcolor;		/* current background color */
 	int v_rfcolor;		/* requested forground color */
 	int v_rbcolor;		/* requested background color */
 #endif
@@ -86,7 +84,9 @@ void vtinit(void)
 
 	TTopen();		/* open the screen */
 	TTkopen();		/* open the keyboard */
+#if REVSTA
 	TTrev(FALSE);
+#endif
 	vscreen = xmalloc(term.t_mrow * sizeof(struct video *));
 
 #if	MEMMAP == 0 || SCROLLCODE
@@ -96,8 +96,8 @@ void vtinit(void)
 		vp = xmalloc(sizeof(struct video) + term.t_mcol*4);
 		vp->v_flag = 0;
 #if	COLOR
-		vp->v_rfcolor = 7;
-		vp->v_rbcolor = 0;
+		vp->v_rfcolor = gfcolor;
+		vp->v_rbcolor = gbcolor;
 #endif
 		vscreen[i] = vp;
 #if	MEMMAP == 0 || SCROLLCODE
@@ -181,7 +181,7 @@ static void vtputc(int c)
 
 	if (vtcol + ncol > term.t_ncol) {
 		vtcol += ncol;
-		if (vp->v_text[term.t_ncol - 1] != HIDECH)
+		if (vp->v_text[term.t_ncol - 1] != PADCH)
 			vp->v_text[term.t_ncol - 1] = '$';
 		return;
 	}
@@ -216,7 +216,7 @@ static void vtputc(int c)
 	if (vtcol >= 0) {
 		vp->v_text[vtcol] = c;
 		if (ncol == 2) {
-			vp->v_text[vtcol + 1] = HIDECH;
+			vp->v_text[vtcol + 1] = PADCH;
 		}
 	}
 	vtcol += ncol;
@@ -234,7 +234,7 @@ static void vteeol(void)
 /*  vp = vscreen[vtrow];	*/
 	while (vtcol < term.t_ncol)
 /*	vp->v_text[vtcol++] = ' ';	*/
-		vcp[vtcol++] = ' ';
+		vcp[vtcol++] = EOLCH;
 }
 
 /*
@@ -346,6 +346,12 @@ int update(int force)
 
 	/* update the virtual screen to the physical screen */
 	updupd(force);
+
+#if COLOR
+	/* reset the foreground and background color */
+	TTforg(gfcolor);
+	TTbacg(gbcolor);
+#endif
 
 	/* update the cursor and flush the buffers */
 	movecursor(currow, curcol - lbound);
@@ -615,22 +621,18 @@ void updgar(void)
 
 	for (i = 0; i < term.t_nrow; ++i) {
 		vscreen[i]->v_flag |= VFCHG;
-#if	REVSTA
+#if	REVSTA | COLOR
 		vscreen[i]->v_flag &= ~VFREV;
-#endif
-#if	COLOR
-		vscreen[i]->v_fcolor = gfcolor;
-		vscreen[i]->v_bcolor = gbcolor;
 #endif
 #if	MEMMAP == 0 || SCROLLCODE
 		txt = pscreen[i]->v_text;
 		for (j = 0; j < term.t_ncol; ++j)
-			txt[j] = ' ';
+			txt[j] = EOLCH;
 #endif
 	}
 
 	movecursor(0, 0);	/* Erase the screen. */
-	(*term.t_eeop) ();
+	TTeeop();
 	sgarbf = FALSE;		/* Erase-page clears */
 	mpresf = FALSE;		/* the message area. */
 #if	COLOR
@@ -798,7 +800,7 @@ static int scrolls(int inserts)
 			unicode_t *txt;
 			txt = pscreen[i]->v_text;
 			for (j = 0; j < term.t_ncol; ++j)
-				txt[j] = ' ';
+				txt[j] = EOLCH;
 			vscreen[i]->v_flag |= VFCHG;
 		}
 #endif
@@ -811,7 +813,7 @@ static int scrolls(int inserts)
 static void scrscroll(int from, int to, int count)
 {
 	ttrow = ttcol = -1;
-	(*term.t_scroll) (from, to, count);
+	TTscroll(from, to, count);
 }
 
 /*
@@ -834,7 +836,7 @@ static int endofline(unicode_t *s, int n)
 {
 	int i;
 	for (i = n - 1; i >= 0; i--)
-		if (s[i] != ' ')
+		if (s[i] != EOLCH)
 			return i + 1;
 	return 0;
 }
@@ -899,8 +901,6 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 #endif
 #if	COLOR
 	scwrite(row, vp1->v_text, vp1->v_rfcolor, vp1->v_rbcolor);
-	vp1->v_fcolor = vp1->v_rfcolor;
-	vp1->v_bcolor = vp1->v_rbcolor;
 #else
 	if (vp1->v_flag & VFREQ)
 		scwrite(row, vp1->v_text, 0, 7);
@@ -972,29 +972,34 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 	rev = (vp1->v_flag & VFREV) == VFREV;
 	req = (vp1->v_flag & VFREQ) == VFREQ;
 	if ((rev != req)
-#if	COLOR
-	    || (vp1->v_fcolor != vp1->v_rfcolor)
-	    || (vp1->v_bcolor != vp1->v_rbcolor)
-#endif
 	    ) {
 		movecursor(row, 0);	/* Go to start of line. */
+#if REVSTA
 		/* set rev video if needed */
 		if (rev != req)
-			(*term.t_rev) (req);
+			TTrev(req);
+#endif
 
 		/* scan through the line and dump it to the screen and
 		   the virtual screen array                             */
 		cp3 = &vp1->v_text[term.t_ncol];
 		while (cp1 < cp3) {
-			if (*cp1 != HIDECH) {
-				TTputc(*cp1);
-				ttcol += char_width(*cp1);
+			if (*cp1 != PADCH) {
+				if (*cp1 != EOLCH) {
+					TTputc(*cp1);
+					ttcol += char_width(*cp1);
+				} else {
+					TTputc(' ');
+					ttcol++;
+				}
 			}
 			*cp2++ = *cp1++;
 		}
+#if REVSTA
 		/* turn rev video off */
 		if (rev != req)
-			(*term.t_rev) (FALSE);
+			TTrev(FALSE);
+#endif
 
 		/* update the needed flags */
 		vp1->v_flag &= ~VFCHG;
@@ -1002,17 +1007,15 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 			vp1->v_flag |= VFREV;
 		else
 			vp1->v_flag &= ~VFREV;
-#if	COLOR
-		vp1->v_fcolor = vp1->v_rfcolor;
-		vp1->v_bcolor = vp1->v_rbcolor;
-#endif
 		return TRUE;
 	}
 #endif
 
 	/* advance past any common chars at the left */
 	while (cp1 != &vp1->v_text[term.t_ncol] && cp1[0] == cp2[0]) {
-		if (cp1[0] != HIDECH)
+		if (cp1[0] == EOLCH)
+			break;
+		if (cp1[0] != PADCH)
 			ncol += char_width(cp1[0]);
 		++cp1;
 		++cp2;
@@ -1035,10 +1038,10 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 	cp3 = &vp1->v_text[term.t_ncol];
 	cp4 = &vp2->v_text[term.t_ncol];
 
-	while (cp3[-1] == cp4[-1]) {
+	while (cp3[-1] == cp4[-1] && cp3 > cp1) {
 		--cp3;
 		--cp4;
-		if (cp3[0] != ' ')	/* Note if any nonblank */
+		if (cp3[0] != EOLCH)	/* Note if any nonblank */
 			nbflag = TRUE;	/* in right match. */
 	}
 
@@ -1046,7 +1049,7 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 
 	/* Erase to EOL ? */
 	if (nbflag == FALSE && eolexist == TRUE && (req != TRUE)) {
-		while (cp5 != cp1 && cp5[-1] == ' ')
+		while (cp5 != cp1 && cp5[-1] == EOLCH)
 			--cp5;
 
 		if (cp3 - cp5 <= 3)	/* Use only if erase is */
@@ -1059,9 +1062,14 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 #endif
 
 	while (cp1 != cp5) {	/* Ordinary. */
-		if (*cp1 != HIDECH) {
-			TTputc(*cp1);
-			ttcol += char_width(*cp1);
+		if (*cp1 != PADCH) {
+			if (*cp1 != EOLCH) {
+				TTputc(*cp1);
+				ttcol += char_width(*cp1);
+			} else {
+				TTputc(' ');
+				ttcol++;
+			}
 		}
 		*cp2++ = *cp1++;
 	}
@@ -1100,8 +1108,8 @@ static void modeline(struct window *wp)
 	n = wp->w_toprow + wp->w_ntrows;	/* Location. */
 	vscreen[n]->v_flag |= VFCHG | VFREQ | VFCOL;	/* Redraw next time. */
 #if	COLOR
-	vscreen[n]->v_rfcolor = 0;	/* black on */
-	vscreen[n]->v_rbcolor = 7;	/* white..... */
+	vscreen[n]->v_rfcolor = wp->w_bcolor;	/* black on */
+	vscreen[n]->v_rbcolor = wp->w_fcolor;	/* white..... */
 #endif
 	vtmove(n, 0);		/* Seek to right line. */
 	if (wp == curwp)	/* mark the current buffer */
@@ -1303,8 +1311,8 @@ void mlerase(void)
 		return;
 
 #if	COLOR
-	TTforg(7);
-	TTbacg(0);
+	TTforg(gfcolor);
+	TTbacg(gbcolor);
 #endif
 	if (eolexist == TRUE)
 		TTeeol();
@@ -1339,8 +1347,8 @@ void mlwrite(const char *fmt, ...)
 	}
 #if	COLOR
 	/* set up the proper colors for the command line */
-	TTforg(7);
-	TTbacg(0);
+	TTforg(gfcolor);
+	TTbacg(gbcolor);
 #endif
 
 	/* if we can not erase to end-of-line, do it manually */

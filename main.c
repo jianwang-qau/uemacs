@@ -797,8 +797,8 @@ dspram()
 
 	TTmove(term.t_nrow - 1, 70);
 #if	COLOR
-	TTforg(7);
-	TTbacg(0);
+	TTforg(gfcolor);
+	TTbacg(gbcolor);
 #endif
 	sprintf(mbuf, "[%lu]", envram);
 	sp = &mbuf[0];

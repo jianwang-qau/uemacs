@@ -25,9 +25,9 @@ int gflags = GFREAD;		/* global control flag          */
 #if	PKCODE & IBMPC
 int gfcolor = 8;		/* global forgrnd color (white) */
 #else
-int gfcolor = 7;		/* global forgrnd color (white) */
+int gfcolor = CLR_WHITE;		/* global forgrnd color (white) */
 #endif
-int gbcolor = 0;		/* global backgrnd color (black) */
+int gbcolor = 0x380C2A;		/* global backgrnd color (black) */
 int gasave = 256;		/* global ASAVE size            */
 int gacount = 256;		/* count until next ASAVE       */
 int sgarbf = TRUE;		/* TRUE if screen is garbage    */
