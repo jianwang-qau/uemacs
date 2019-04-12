@@ -45,6 +45,7 @@ extern void sizesignal(int);
  */
 int spawncli(int f, int n)
 {
+	int ret;
 #if     V7 | USG | BSD
 	char *cp;
 #endif
@@ -80,13 +81,15 @@ int spawncli(int f, int n)
 	TTclose();		/* stty to old settings */
 	TTkclose();		/* Close "keyboard" */
 	if ((cp = getenv("SHELL")) != NULL && *cp != '\0')
-		system(cp);
+		ret = system(cp);
 	else
 #if	BSD
-		system("exec /bin/csh");
+		ret = system("exec /bin/csh");
 #else
-		system("exec /bin/sh");
+		ret = system("exec /bin/sh");
 #endif
+	if (ret < 0)
+		return FALSE;
 	sgarbf = TRUE;
 	sleep(2);
 	TTopen();
@@ -135,7 +138,7 @@ void rtfrmshell(void)
  */
 int spawn(int f, int n)
 {
-	int s;
+	int ret, s;
 	char line[NLINE];
 
 	/* don't allow this command if restricted */
@@ -177,7 +180,9 @@ int spawn(int f, int n)
 	TTflush();
 	TTclose();		/* stty to old modes    */
 	TTkclose();
-	system(line);
+	ret = system(line);
+	if (ret < 0)
+		return FALSE;
 	fflush(stdout);		/* to be sure P.K.      */
 	TTopen();
 
@@ -201,7 +206,7 @@ int spawn(int f, int n)
 
 int execprg(int f, int n)
 {
-	int s;
+	int ret, s;
 	char line[NLINE];
 
 	/* don't allow this command if restricted */
@@ -243,7 +248,9 @@ int execprg(int f, int n)
 	TTflush();
 	TTclose();		/* stty to old modes    */
 	TTkclose();
-	system(line);
+	ret = system(line);
+	if (ret < 0)
+		return FALSE;
 	fflush(stdout);		/* to be sure P.K.      */
 	TTopen();
 	mlputs("(End)");	/* Pause.               */
@@ -260,7 +267,7 @@ int execprg(int f, int n)
  */
 int pipecmd(int f, int n)
 {
-	int s;		/* return status from CLI */
+	int ret, s;		/* return status from CLI */
 	struct window *wp;	/* pointer to new window */
 	struct buffer *bp;	/* pointer to buffer to zot */
 	char line[NLINE];	/* command line send to shell */
@@ -346,7 +353,9 @@ int pipecmd(int f, int n)
 	TTkclose();
 	strcat(line, ">");
 	strcat(line, filnam);
-	system(line);
+	ret = system(line);
+	if (ret < 0)
+		return FALSE;
 	TTopen();
 	TTkopen();
 	TTflush();
@@ -384,7 +393,7 @@ int pipecmd(int f, int n)
  */
 int filter_buffer(int f, int n)
 {
-	int s;		/* return status from CLI */
+	int ret, s;		/* return status from CLI */
 	struct buffer *bp;	/* pointer to buffer to zot */
 	char line[NLINE];	/* command line send to shell */
 	char tmpnam[NFILEN];	/* place to store real file name */
@@ -436,7 +445,9 @@ int filter_buffer(int f, int n)
 	TTclose();		/* stty to old modes    */
 	TTkclose();
 	strcat(line, " <fltinp >fltout");
-	system(line);
+	ret = system(line);
+	if (ret < 0)
+		return FALSE;
 	TTopen();
 	TTkopen();
 	TTflush();

@@ -43,6 +43,7 @@ int gethostname(char *name, int namelen)
  *********************/
 char *dolock(char *fname)
 {
+	int ret;
 	int fd, n;
 	static char lname[MAXLOCK], locker[MAXNAME + 1];
 	int mask;
@@ -84,7 +85,9 @@ char *dolock(char *fname)
 		cuserid(locker);
 		strcat(locker + strlen(locker), "@");
 		gethostname(locker + strlen(locker), 64);
-		write(fd, locker, strlen(locker));
+		ret = write(fd, locker, strlen(locker));
+		if (ret < 0)
+			return NULL;
 		close(fd);
 		return NULL;
 	}

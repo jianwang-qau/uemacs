@@ -551,6 +551,7 @@ int getstring(char *prompt, char *buf, int nbuf, int eolchar)
 			char sffbuf[128];
 			int lsav = -1;
 #endif
+			int ret;
 			int n, iswild = 0;
 
 			didtry = 1;
@@ -592,7 +593,9 @@ int getstring(char *prompt, char *buf, int nbuf, int eolchar)
 				xmkstemp(tmp);
 				strcat(ffbuf, tmp);
 				strcat(ffbuf, " 2>&1");
-				system(ffbuf);
+				ret = system(ffbuf);
+				if (ret < 0)
+					return FALSE;
 				tmpf = fopen(tmp, "r");
 #endif
 #if	MSDOS

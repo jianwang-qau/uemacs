@@ -121,9 +121,9 @@ char *gtfun(char *fname)
 	case UFLENGTH:
 		return itoa(strlen(arg1));
 	case UFUPPER:
-		return mkupper(arg1);
+		return strcpy(result, mkupper(arg1));
 	case UFLOWER:
-		return mklower(arg1);
+		return strcpy(result, mklower(arg1));
 	case UFTRUTH:
 		return ltos(atoi(arg1) == 42);
 	case UFASCII:
