@@ -39,7 +39,8 @@ extern int gfcolor;		/* global forgrnd color (white) */
 extern int gbcolor;		/* global backgrnd color (black) */
 
 /* syntax highlight color */
-extern int specialfg;		/* special key forgrnd color */
+extern int speckeyfg;		/* special key forgrnd color */
+extern int speccharfg;		/* special char forgrnd color */
 extern int commentfg;		/* comment forgrnd color */
 extern int stringfg;		/* string forgrnd color */
 

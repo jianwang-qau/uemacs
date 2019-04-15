@@ -213,8 +213,8 @@ static void vtputc(int c)
 		vtputc('^');
 		vtputc(c ^ 0x40);
 #if COLOR
-		vp->v_text[vtcol - 1].t_fcolor = specialfg;
-		vp->v_text[vtcol - 2].t_fcolor = specialfg;
+		vp->v_text[vtcol - 1].t_fcolor = speckeyfg;
+		vp->v_text[vtcol - 2].t_fcolor = speckeyfg;
 #endif
 		return;
 	}
@@ -223,8 +223,8 @@ static void vtputc(int c)
 		vtputc('^');
 		vtputc('?');
 #if COLOR
-		vp->v_text[vtcol - 1].t_fcolor = specialfg;
-		vp->v_text[vtcol - 2].t_fcolor = specialfg;
+		vp->v_text[vtcol - 1].t_fcolor = speckeyfg;
+		vp->v_text[vtcol - 2].t_fcolor = speckeyfg;
 #endif
 		return;
 	}
@@ -235,9 +235,9 @@ static void vtputc(int c)
 		vtputc(hex[c >> 4]);
 		vtputc(hex[c & 15]);
 #if COLOR
-		vp->v_text[vtcol - 1].t_fcolor = specialfg;
-		vp->v_text[vtcol - 2].t_fcolor = specialfg;
-		vp->v_text[vtcol - 3].t_fcolor = specialfg;
+		vp->v_text[vtcol - 1].t_fcolor = speckeyfg;
+		vp->v_text[vtcol - 2].t_fcolor = speckeyfg;
+		vp->v_text[vtcol - 3].t_fcolor = speckeyfg;
 #endif
 		return;
 	}
@@ -263,14 +263,27 @@ static void vtputc(int c)
 		if (hi_scomment == TRUE)
 			vp->v_text[vtcol].t_fcolor = commentfg;
 		else if (c == '"') {
-			if (hi_sstring == FALSE)
+			if (hi_sstring == FALSE) {
 				hi_sstring = TRUE;
-			else
-				hi_sstring = FALSE;
-			vp->v_text[vtcol].t_fcolor = stringfg;
-		} else if (hi_sstring == TRUE)
-			vp->v_text[vtcol].t_fcolor = stringfg;
-		else if (c == '/' && vtcol > 0 && vp->v_text[vtcol - 1].t_char == '/') {
+				vp->v_text[vtcol].t_fcolor = stringfg;
+			} else {
+				if (vp->v_text[vtcol - 1].t_char != '\\') {
+					hi_sstring = FALSE;
+					vp->v_text[vtcol].t_fcolor = stringfg;
+				} else {
+					vp->v_text[vtcol].t_fcolor = speccharfg;
+					vp->v_text[vtcol - 1].t_fcolor = speccharfg;
+				}
+			}
+		} else if (hi_sstring == TRUE) {
+			if (vp->v_text[vtcol - 1].t_char == '\\' &&
+				( c == '\\' || c == 'a' || c == 'b' || c == 'e'
+				|| c == 'n' || c == 'r' || c == 't' || c == 'v')) {
+				vp->v_text[vtcol].t_fcolor = speccharfg;
+				vp->v_text[vtcol - 1].t_fcolor = speccharfg;
+			} else
+				vp->v_text[vtcol].t_fcolor = stringfg;
+		} else if (c == '/' && vtcol > 0 && vp->v_text[vtcol - 1].t_char == '/') {
 			vp->v_text[vtcol].t_fcolor = commentfg;
 			vp->v_text[vtcol - 1].t_fcolor = commentfg;
 			hi_scomment = TRUE;

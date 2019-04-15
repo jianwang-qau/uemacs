@@ -30,7 +30,8 @@ int gfcolor = CLR_WHITE;		/* global forgrnd color (white) */
 int gbcolor = 0x380C2A;		/* global backgrnd color (black) */
 
 /* syntax highlight color */
-int specialfg = 0x00D8FF;	/* special key forgrnd color */
+int speckeyfg = 0x00D8FF;	/* special key forgrnd color */
+int speccharfg = 0xFFD2D3;	/* special char forgrnd color */
 int commentfg = 0x00E8E6;	/* comment forgrnd color */
 int stringfg = 0xBB75A6;	/* string forgrnd color */
 
