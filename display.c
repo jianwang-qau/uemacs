@@ -60,7 +60,9 @@ int chg_width, chg_height;
 #endif
 
 #if COLOR
-static int scomment;
+static int hi_enable;
+static int hi_sstring;
+static int hi_scomment;
 #endif
 
 static int reframe(struct window *wp);
@@ -256,13 +258,22 @@ static void vtputc(int c)
 	}
 
 #if COLOR
-	if ((curbp->b_mode & MDCMOD) != 0) {
-		if (scomment == TRUE)
+	/* syntax highlight */
+	if (hi_enable == TRUE && (curbp->b_mode & MDCMOD) != 0) {
+		if (hi_scomment == TRUE)
 			vp->v_text[vtcol].t_fcolor = commentfg;
+		else if (c == '"') {
+			if (hi_sstring == FALSE)
+				hi_sstring = TRUE;
+			else
+				hi_sstring = FALSE;
+			vp->v_text[vtcol].t_fcolor = stringfg;
+		} else if (hi_sstring == TRUE)
+			vp->v_text[vtcol].t_fcolor = stringfg;
 		else if (c == '/' && vtcol > 0 && vp->v_text[vtcol - 1].t_char == '/') {
 			vp->v_text[vtcol].t_fcolor = commentfg;
 			vp->v_text[vtcol - 1].t_fcolor = commentfg;
-			scomment = TRUE;
+			hi_scomment = TRUE;
 		}
 	}
 #endif
@@ -510,7 +521,9 @@ static int reframe(struct window *wp)
 static void show_line(struct line *lp)
 {
 #if COLOR
-	scomment = FALSE;
+	hi_enable = TRUE;
+	hi_sstring = FALSE;
+	hi_scomment = FALSE;
 #endif
 	int i = 0, len = llength(lp);
 
@@ -1221,6 +1234,7 @@ static void modeline(struct window *wp)
 	n = wp->w_toprow + wp->w_ntrows;	/* Location. */
 	vscreen[n]->v_flag |= VFCHG | VFREQ | VFCOL;	/* Redraw next time. */
 #if	COLOR
+	hi_enable = FALSE;
 	vscreen[n]->v_rfcolor = wp->w_bcolor;	/* black on */
 	vscreen[n]->v_rbcolor = wp->w_fcolor;	/* white..... */
 #endif

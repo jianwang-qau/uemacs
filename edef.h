@@ -41,6 +41,7 @@ extern int gbcolor;		/* global backgrnd color (black) */
 /* syntax highlight color */
 extern int specialfg;		/* special key forgrnd color */
 extern int commentfg;		/* comment forgrnd color */
+extern int stringfg;		/* string forgrnd color */
 
 extern int gasave;		/* global ASAVE size            */
 extern int gacount;		/* count until next ASAVE       */
