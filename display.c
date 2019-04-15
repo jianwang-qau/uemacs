@@ -59,6 +59,10 @@ static int displaying = TRUE;
 int chg_width, chg_height;
 #endif
 
+#if COLOR
+static int scomment;
+#endif
+
 static int reframe(struct window *wp);
 static void updone(struct window *wp);
 static void updall(struct window *wp);
@@ -207,8 +211,8 @@ static void vtputc(int c)
 		vtputc('^');
 		vtputc(c ^ 0x40);
 #if COLOR
-		vp->v_text[vtcol - 1].t_fcolor = skfcolor;
-		vp->v_text[vtcol - 2].t_fcolor = skfcolor;
+		vp->v_text[vtcol - 1].t_fcolor = specialfg;
+		vp->v_text[vtcol - 2].t_fcolor = specialfg;
 #endif
 		return;
 	}
@@ -217,8 +221,8 @@ static void vtputc(int c)
 		vtputc('^');
 		vtputc('?');
 #if COLOR
-		vp->v_text[vtcol - 1].t_fcolor = skfcolor;
-		vp->v_text[vtcol - 2].t_fcolor = skfcolor;
+		vp->v_text[vtcol - 1].t_fcolor = specialfg;
+		vp->v_text[vtcol - 2].t_fcolor = specialfg;
 #endif
 		return;
 	}
@@ -229,9 +233,9 @@ static void vtputc(int c)
 		vtputc(hex[c >> 4]);
 		vtputc(hex[c & 15]);
 #if COLOR
-		vp->v_text[vtcol - 1].t_fcolor = skfcolor;
-		vp->v_text[vtcol - 2].t_fcolor = skfcolor;
-		vp->v_text[vtcol - 3].t_fcolor = skfcolor;
+		vp->v_text[vtcol - 1].t_fcolor = specialfg;
+		vp->v_text[vtcol - 2].t_fcolor = specialfg;
+		vp->v_text[vtcol - 3].t_fcolor = specialfg;
 #endif
 		return;
 	}
@@ -250,6 +254,19 @@ static void vtputc(int c)
 			vp->v_text[vtcol + 1].t_char = PADCH;
 		}
 	}
+
+#if COLOR
+	if ((curbp->b_mode & MDCMOD) != 0) {
+		if (scomment == TRUE)
+			vp->v_text[vtcol].t_fcolor = commentfg;
+		else if (c == '/' && vtcol > 0 && vp->v_text[vtcol - 1].t_char == '/') {
+			vp->v_text[vtcol].t_fcolor = commentfg;
+			vp->v_text[vtcol - 1].t_fcolor = commentfg;
+			scomment = TRUE;
+		}
+	}
+#endif
+
 	vtcol += ncol;
 }
 
@@ -492,6 +509,9 @@ static int reframe(struct window *wp)
 
 static void show_line(struct line *lp)
 {
+#if COLOR
+	scomment = FALSE;
+#endif
 	int i = 0, len = llength(lp);
 
 	while (i < len) {

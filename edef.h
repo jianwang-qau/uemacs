@@ -37,7 +37,11 @@ extern int gmode;		/* global editor mode           */
 extern int gflags;		/* global control flag          */
 extern int gfcolor;		/* global forgrnd color (white) */
 extern int gbcolor;		/* global backgrnd color (black) */
-extern int skfcolor;		/* special key forgrnd color */
+
+/* syntax highlight color */
+extern int specialfg;		/* special key forgrnd color */
+extern int commentfg;		/* comment forgrnd color */
+
 extern int gasave;		/* global ASAVE size            */
 extern int gacount;		/* count until next ASAVE       */
 extern int sgarbf;		/* State of screen unknown      */
