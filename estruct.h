@@ -238,7 +238,7 @@
 #define	KBLOCK	250		/* sizeof kill buffer chunks    */
 
 /* supported colors */
-
+#define CLR_NONE	-1
 #define CLR_BLACK	0x000000
 #define CLR_DARK_RED	0x800000
 #define CLR_DARK_GREEN	0x008000

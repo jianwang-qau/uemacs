@@ -21,13 +21,21 @@
 #include "wrapper.h"
 #include "utf8.h"
 
+struct text {
+#if COLOR
+	int t_fcolor;
+	int t_bcolor;
+#endif
+	unicode_t t_char;
+};
+
 struct video {
 	int v_flag;		/* Flags */
 #if	COLOR
 	int v_rfcolor;		/* requested forground color */
 	int v_rbcolor;		/* requested background color */
 #endif
-	unicode_t v_text[1];	/* Screen data. */
+	struct text v_text[1];	/* Screen data. */
 };
 
 #define VFCHG   0x0001		/* Changed flag                 */
@@ -57,7 +65,7 @@ static void updall(struct window *wp);
 static int scrolls(int inserts);
 static void scrscroll(int from, int to, int count);
 static int texttest(int vrow, int prow);
-static int endofline(unicode_t *s, int n);
+static int endofline(struct text *s, int n);
 static void updext(void);
 static int updateline(int row, struct video *vp1, struct video *vp2);
 static void modeline(struct window *wp);
@@ -93,7 +101,7 @@ void vtinit(void)
 	pscreen = xmalloc(term.t_mrow * sizeof(struct video *));
 #endif
 	for (i = 0; i < term.t_mrow; ++i) {
-		vp = xmalloc(sizeof(struct video) + term.t_mcol*4);
+		vp = xmalloc(sizeof(struct video) + term.t_mcol*sizeof(struct text));
 		vp->v_flag = 0;
 #if	COLOR
 		vp->v_rfcolor = gfcolor;
@@ -101,7 +109,7 @@ void vtinit(void)
 #endif
 		vscreen[i] = vp;
 #if	MEMMAP == 0 || SCROLLCODE
-		vp = xmalloc(sizeof(struct video) + term.t_mcol*4);
+		vp = xmalloc(sizeof(struct video) + term.t_mcol*sizeof(struct text));
 		vp->v_flag = 0;
 		pscreen[i] = vp;
 #endif
@@ -183,8 +191,8 @@ static void vtputc(int c)
 
 	if (vtcol + ncol > term.t_ncol) {
 		vtcol += ncol;
-		if (vp->v_text[term.t_ncol - 1] != PADCH)
-			vp->v_text[term.t_ncol - 1] = '$';
+		if (vp->v_text[term.t_ncol - 1].t_char != PADCH)
+			vp->v_text[term.t_ncol - 1].t_char = '$';
 		return;
 	}
 
@@ -198,12 +206,20 @@ static void vtputc(int c)
 	if (c < 0x20) { // C0
 		vtputc('^');
 		vtputc(c ^ 0x40);
+#if COLOR
+		vp->v_text[vtcol - 1].t_fcolor = skfcolor;
+		vp->v_text[vtcol - 2].t_fcolor = skfcolor;
+#endif
 		return;
 	}
 
 	if (c == 0x7f) { // C0
 		vtputc('^');
 		vtputc('?');
+#if COLOR
+		vp->v_text[vtcol - 1].t_fcolor = skfcolor;
+		vp->v_text[vtcol - 2].t_fcolor = skfcolor;
+#endif
 		return;
 	}
 
@@ -212,13 +228,26 @@ static void vtputc(int c)
 		vtputc('\\');
 		vtputc(hex[c >> 4]);
 		vtputc(hex[c & 15]);
+#if COLOR
+		vp->v_text[vtcol - 1].t_fcolor = skfcolor;
+		vp->v_text[vtcol - 2].t_fcolor = skfcolor;
+		vp->v_text[vtcol - 3].t_fcolor = skfcolor;
+#endif
 		return;
 	}
 	
 	if (vtcol >= 0) {
-		vp->v_text[vtcol] = c;
+#if COLOR
+		vp->v_text[vtcol].t_fcolor = CLR_NONE;
+		vp->v_text[vtcol].t_bcolor = CLR_NONE;
+#endif
+		vp->v_text[vtcol].t_char = c;
 		if (ncol == 2) {
-			vp->v_text[vtcol + 1] = PADCH;
+#if COLOR
+			vp->v_text[vtcol + 1].t_fcolor = CLR_NONE;
+			vp->v_text[vtcol + 1].t_bcolor = CLR_NONE;
+#endif
+			vp->v_text[vtcol + 1].t_char = PADCH;
 		}
 	}
 	vtcol += ncol;
@@ -231,12 +260,18 @@ static void vtputc(int c)
 static void vteeol(void)
 {
 /*  struct video *vp;	*/
-	unicode_t *vcp = vscreen[vtrow]->v_text;
+	struct text *vcp = vscreen[vtrow]->v_text;
 
 /*  vp = vscreen[vtrow];	*/
-	while (vtcol < term.t_ncol)
-/*	vp->v_text[vtcol++] = ' ';	*/
-		vcp[vtcol++] = EOLCH;
+	while (vtcol < term.t_ncol) {
+/*	vp->v_text[vtcol++].t_char = ' ';	*/
+#if COLOR
+		vcp[vtcol].t_fcolor = CLR_NONE;
+		vcp[vtcol].t_bcolor = CLR_NONE;
+#endif
+		vcp[vtcol].t_char = EOLCH;
+		vtcol++;
+	}
 }
 
 /*
@@ -618,7 +653,7 @@ void upddex(void)
  */
 void updgar(void)
 {
-	unicode_t *txt;
+	struct text *txt;
 	int i, j;
 
 	for (i = 0; i < term.t_nrow; ++i) {
@@ -628,8 +663,13 @@ void updgar(void)
 #endif
 #if	MEMMAP == 0 || SCROLLCODE
 		txt = pscreen[i]->v_text;
-		for (j = 0; j < term.t_ncol; ++j)
-			txt[j] = EOLCH;
+		for (j = 0; j < term.t_ncol; ++j) {
+#if COLOR
+			txt[j].t_fcolor = CLR_NONE;
+			txt[j].t_bcolor = CLR_NONE;
+#endif
+			txt[j].t_char = EOLCH;
+		}
 #endif
 	}
 
@@ -721,7 +761,7 @@ static int scrolls(int inserts)
 		end = endofline(vpv->v_text, cols);
 		if (end == 0)
 			target = first;	/* newlines */
-		else if (memcmp(vpp->v_text, vpv->v_text, 4*end) == 0)
+		else if (memcmp(vpp->v_text, vpv->v_text, sizeof(struct text)*end) == 0)
 			target = first + 1;	/* broken line newlines */
 		else
 			target = first;
@@ -780,7 +820,7 @@ static int scrolls(int inserts)
 		for (i = 0; i < count; i++) {
 			vpp = pscreen[to + i];
 			vpv = vscreen[to + i];
-			memcpy(vpp->v_text, vpv->v_text, 4*cols);
+			memcpy(vpp->v_text, vpv->v_text, sizeof(struct text)*cols);
 			vpp->v_flag = vpv->v_flag;	/* XXX */
 			if (vpp->v_flag & VFREV) {
 				vpp->v_flag &= ~VFREV;
@@ -799,10 +839,15 @@ static int scrolls(int inserts)
 		}
 #if	MEMMAP == 0
 		for (i = from; i < to; i++) {
-			unicode_t *txt;
+			struct text *txt;
 			txt = pscreen[i]->v_text;
-			for (j = 0; j < term.t_ncol; ++j)
-				txt[j] = EOLCH;
+			for (j = 0; j < term.t_ncol; ++j) {
+#if COLOR
+				txt[j].t_fcolor = CLR_NONE;
+				txt[j].t_bcolor = CLR_NONE;
+#endif
+				txt[j].t_char = EOLCH;
+			}
 			vscreen[i]->v_flag |= VFCHG;
 		}
 #endif
@@ -828,17 +873,17 @@ static int texttest(int vrow, int prow)
 	struct video *vpv = vscreen[vrow];	/* virtual screen image */
 	struct video *vpp = pscreen[prow];	/* physical screen image */
 
-	return !memcmp(vpv->v_text, vpp->v_text, 4*term.t_ncol);
+	return !memcmp(vpv->v_text, vpp->v_text, sizeof(struct text)*term.t_ncol);
 }
 
 /*
  * return the index of the first blank of trailing whitespace
  */
-static int endofline(unicode_t *s, int n)
+static int endofline(struct text *s, int n)
 {
 	int i;
 	for (i = n - 1; i >= 0; i--)
-		if (s[i] != EOLCH)
+		if (s[i].t_char != EOLCH)
 			return i + 1;
 	return 0;
 }
@@ -872,7 +917,7 @@ static void updext(void)
 	taboff = 0;
 
 	/* and put a '$' in column 1 */
-	vscreen[currow]->v_text[0] = '$';
+	vscreen[currow]->v_text[0].t_char = '$';
 }
 
 /*
@@ -887,8 +932,8 @@ static void updext(void)
 static int updateline(int row, struct video *vp1, struct video *vp2)
 {
 #if	SCROLLCODE
-	unicode_t *cp1;
-	unicode_t *cp2;
+	struct text *cp1;
+	struct text *cp2;
 	int nch;
 
 	cp1 = &vp1->v_text[0];
@@ -927,8 +972,8 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 #if RAINBOW
 /*	UPDATELINE specific code for the DEC rainbow 100 micro	*/
 
-	unicode_t *cp1;
-	unicode_t *cp2;
+	struct text *cp1;
+	struct text *cp2;
 	int nch;
 
 	/* since we don't know how to make the rainbow do this, turn it off */
@@ -949,15 +994,19 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 #else
 /*	UPDATELINE code for all other versions		*/
 
-	unicode_t *cp1;
-	unicode_t *cp2;
-	unicode_t *cp3;
-	unicode_t *cp4;
-	unicode_t *cp5;
+	struct text *cp1;
+	struct text *cp2;
+	struct text *cp3;
+	struct text *cp4;
+	struct text *cp5;
 	int nbflag;	/* non-blanks to the right flag? */
 	int rev;		/* reverse video flag */
 	int req;		/* reverse video request flag */
 	int ncol = 0;
+#if COLOR
+	int last_fg = CLR_NONE;
+	int last_bg = CLR_NONE;
+#endif
 
 	/* set up pointers to virtual and physical lines */
 	cp1 = &vp1->v_text[0];
@@ -986,10 +1035,26 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 		   the virtual screen array                             */
 		cp3 = &vp1->v_text[term.t_ncol];
 		while (cp1 < cp3) {
-			if (*cp1 != PADCH) {
-				if (*cp1 != EOLCH) {
-					TTputc(*cp1);
-					ttcol += char_width(*cp1);
+			if (cp1->t_char != PADCH) {
+#if COLOR
+				if (cp1->t_fcolor != last_fg) {
+					if (cp1->t_fcolor == CLR_NONE)
+						TTforg(vp1->v_rfcolor);
+					else
+						TTforg(cp1->t_fcolor);
+					last_fg = cp1->t_fcolor;
+				}
+				if (cp1->t_bcolor != last_bg) {
+					if (cp1->t_bcolor == CLR_NONE)
+						TTbacg(vp1->v_rbcolor);
+					else
+						TTbacg(cp1->t_bcolor);
+					last_bg = cp1->t_bcolor;
+				}
+#endif
+				if (cp1->t_char != EOLCH) {
+					TTputc(cp1->t_char);
+					ttcol += char_width(cp1->t_char);
 				} else {
 					TTputc(' ');
 					ttcol++;
@@ -1014,11 +1079,16 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 #endif
 
 	/* advance past any common chars at the left */
-	while (cp1 != &vp1->v_text[term.t_ncol] && cp1[0] == cp2[0]) {
-		if (cp1[0] == EOLCH)
+	while (cp1 != &vp1->v_text[term.t_ncol] && cp1->t_char == cp2->t_char
+#if COLOR
+			&& cp1->t_fcolor == cp2->t_fcolor
+			&& cp1->t_bcolor == cp2->t_bcolor
+#endif
+			) {
+		if (cp1->t_char == EOLCH)
 			break;
-		if (cp1[0] != PADCH)
-			ncol += char_width(cp1[0]);
+		if (cp1->t_char != PADCH)
+			ncol += char_width(cp1->t_char);
 		++cp1;
 		++cp2;
 	}
@@ -1040,10 +1110,15 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 	cp3 = &vp1->v_text[term.t_ncol];
 	cp4 = &vp2->v_text[term.t_ncol];
 
-	while (cp3[-1] == cp4[-1] && cp3 > cp1) {
+	while (cp3 > cp1 && cp3[-1].t_char == cp4[-1].t_char
+#if COLOR
+			&& cp3[-1].t_fcolor == cp4[-1].t_fcolor
+			&& cp3[-1].t_bcolor == cp4[-1].t_bcolor
+#endif
+			) {
 		--cp3;
 		--cp4;
-		if (cp3[0] != EOLCH)	/* Note if any nonblank */
+		if (cp3->t_char != EOLCH)	/* Note if any nonblank */
 			nbflag = TRUE;	/* in right match. */
 	}
 
@@ -1051,7 +1126,7 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 
 	/* Erase to EOL ? */
 	if (nbflag == FALSE && eolexist == TRUE && (req != TRUE)) {
-		while (cp5 != cp1 && cp5[-1] == EOLCH)
+		while (cp5 != cp1 && cp5[-1].t_char == EOLCH)
 			--cp5;
 
 		if (cp3 - cp5 <= 3)	/* Use only if erase is */
@@ -1064,10 +1139,26 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 #endif
 
 	while (cp1 != cp5) {	/* Ordinary. */
-		if (*cp1 != PADCH) {
-			if (*cp1 != EOLCH) {
-				TTputc(*cp1);
-				ttcol += char_width(*cp1);
+		if (cp1->t_char != PADCH) {
+#if COLOR
+			if (cp1->t_fcolor != last_fg) {
+				if (cp1->t_fcolor == CLR_NONE)
+					TTforg(vp1->v_rfcolor);
+				else
+					TTforg(cp1->t_fcolor);
+				last_fg = cp1->t_fcolor;
+			}
+			if (cp1->t_bcolor != last_bg) {
+				if (cp1->t_bcolor == CLR_NONE)
+					TTbacg(vp1->v_rbcolor);
+				else
+					TTbacg(cp1->t_bcolor);
+				last_bg = cp1->t_bcolor;
+			}
+#endif
+			if (cp1->t_char != EOLCH) {
+				TTputc(cp1->t_char);
+				ttcol += char_width(cp1->t_char);
 			} else {
 				TTputc(' ');
 				ttcol++;
