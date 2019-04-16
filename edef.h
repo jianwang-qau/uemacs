@@ -43,6 +43,7 @@ extern int speckeyfg;		/* special key forgrnd color */
 extern int speccharfg;		/* special char forgrnd color */
 extern int commentfg;		/* comment forgrnd color */
 extern int stringfg;		/* string forgrnd color */
+extern int preprocfg;		/* preprocess forgrnd color */
 
 extern int gasave;		/* global ASAVE size            */
 extern int gacount;		/* count until next ASAVE       */
