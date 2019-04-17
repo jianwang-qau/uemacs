@@ -7,7 +7,11 @@
 
 #if COLOR
 
+#include <string.h>
 #include "syntax.h"
+
+#define SYNLEN	20
+static char synbuf[SYNLEN + 1];
 
 /* syntax highlight color */
 static int speckeyfg = 0x00D8FF;	/* special key forgrnd color */
@@ -24,6 +28,10 @@ static int hi_pound_idx;	/* # index */
 static int hi_less_idx;	/* #include < index */
 
 static void syn_include(struct text *v_text, int vtcol);
+
+static void syn_find(struct text *v_text, int begin, int end, int *pbegin, int *pend);
+static void syn_trim(struct text *v_text, int begin, int end, int *pbegin, int *pend);
+static void syn_fcolor(struct text *v_text, int begin, int end, int fcolor);
 
 /* syntax highlight for special key */
 void syntax_specialkey(struct text *v_text, int start, int len)
@@ -102,33 +110,61 @@ void syntax_c_handle(struct text *v_text, int vtcol)
 /* syntax highlight for #include */
 static void syn_include(struct text *v_text, int vtcol)
 {
-	int i, j, k;
+	int begin, end;
 
-	for (i = hi_pound_idx + 1; i< vtcol;) {
+	syn_find(v_text, hi_pound_idx + 1, vtcol - 1, &begin, &end);
+
+	if (strcmp("include", synbuf) == 0) {
+		v_text[hi_pound_idx].t_fcolor = preprocfg;
+		syn_fcolor(v_text, begin, end, preprocfg);
+		hi_include = TRUE;
+	}
+}
+
+static void syn_find(struct text *v_text, int begin, int end, int *pbegin, int *pend)
+{
+	int i, len;
+
+	syn_trim(v_text, begin, end, pbegin, pend);
+	len = *pend - *pbegin + 1;
+
+	if (len <= 0 || len > SYNLEN) {
+		synbuf[0] = '\0';
+		return;
+	}
+
+	for (i = 0; i < len; i++)
+		synbuf[i] = v_text[*pbegin + i].t_char;
+
+	synbuf[len] = '\0';
+}
+
+static void syn_trim(struct text *v_text, int begin, int end, int *pbegin, int *pend)
+{
+	int i, j;
+
+	for (i = begin; i<= end;) {
 		if (v_text[i].t_char != ' ')
 			break;
 		i++;
 	}
 
-	for (j = vtcol - 1; j > hi_pound_idx;) {
+	for (j = end; j > i;) {
 		if (v_text[j].t_char != ' ')
 			break;
 		j--;
 	}
 
-	if (j - i == 6 &&
-		v_text[i].t_char == 'i' &&
-		v_text[i + 1].t_char == 'n' &&
-		v_text[i + 2].t_char == 'c' &&
-		v_text[i + 3].t_char == 'l' &&
-		v_text[i + 4].t_char == 'u' &&
-		v_text[i + 5].t_char == 'd' &&
-		v_text[i + 6].t_char == 'e') {
-		v_text[hi_pound_idx].t_fcolor = preprocfg;
-		for (k = i; k <= j; k++)
-			v_text[k].t_fcolor = preprocfg;
-		hi_include = TRUE;
-	}
+	*pbegin = i;
+	*pend = j;
+}
+
+static void syn_fcolor(struct text *v_text, int begin, int end, int fcolor)
+{
+	int i;
+
+	for (i = begin; i <= end; i++)
+		v_text[i].t_fcolor = fcolor;
 }
 
 #endif /* COLOR */
