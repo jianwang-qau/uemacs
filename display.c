@@ -505,6 +505,10 @@ static void show_line(struct line *lp)
 		i += utf8_to_unicode(lp->l_text, i, len, &c);
 		vtputc(c);
 	}
+#if COLOR
+	if ((curbp->b_mode & MDCMOD) != 0)
+		syntax_c_line_end(vscreen[vtrow]->v_text, vtcol);
+#endif
 }
 
 /*
