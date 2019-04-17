@@ -19,9 +19,15 @@ static int speccharfg = 0xFFD2D3;	/* special char forgrnd color */
 static int commentfg = 0x00E8E6;	/* comment forgrnd color */
 static int stringfg = 0xBB75A6;	/* string forgrnd color */
 static int preprocfg = 0x00D8FF;	/* preprocess forgrnd color */
+static int typefg = 0x00FFB1;	/* type forgrnd color */
 
 static char *arr_preproc_if[] = {"if", "ifdef" , "ifndef", NULL};
 static char *arr_preproc_else[] = {"else", "endif", NULL};
+static char *arr_type[] = {
+	"int", "long", "short", "char", "void",
+	"signed", "unsigned", "float", "double",
+	NULL
+};
 
 /* syntax highlight flag */
 static int hi_sstring;	/* single line string */
@@ -36,6 +42,7 @@ static int hi_nonempty_idx;	/* nonempty char index */
 
 static void syn_include(struct text *v_text, int vtcol);
 static void syn_preproc(struct text *v_text, int vtcol);
+static void syn_type(struct text *v_text, int vtcol);
 
 static void syn_find(struct text *v_text, int begin, int end, int *pbegin, int *pend);
 static void syn_trim(struct text *v_text, int begin, int end, int *pbegin, int *pend);
@@ -126,7 +133,11 @@ void syntax_c_handle(struct text *v_text, int vtcol)
 	} else if (c == ' ') {
 		if (hi_pound_idx >= 0 && hi_preproc == FALSE)
 			syn_preproc(v_text, vtcol);
-	}
+		else if (hi_nonempty_idx >= 0)
+			syn_type(v_text, vtcol);
+		hi_nonempty_idx = -1;
+	} else if (c == '(')
+		hi_nonempty_idx = -1;
 }
 
 /* syntax highlight line end for c */
@@ -134,6 +145,8 @@ void syntax_c_line_end(struct text *v_text, int vtcol)
 {
 	if (hi_pound_idx >= 0 && hi_preproc == FALSE)
 		syn_preproc(v_text, vtcol);
+	else if (hi_nonempty_idx >= 0)
+		syn_type(v_text, vtcol);
 }
 
 /* syntax highlight for #include */
@@ -171,6 +184,17 @@ static void syn_preproc(struct text *v_text, int vtcol)
 		syn_fcolor(v_text, begin, end, preprocfg);
 		hi_preproc = TRUE;
 	}
+}
+
+/* syntax highlight for type */
+static void syn_type(struct text *v_text, int vtcol)
+{
+	int begin, end;
+
+	syn_find(v_text, hi_nonempty_idx, vtcol - 1, &begin, &end);
+
+	if (arr_find(arr_type, synbuf) == TRUE)
+		syn_fcolor(v_text, begin, end, typefg);
 }
 
 static void syn_find(struct text *v_text, int begin, int end, int *pbegin, int *pend)
