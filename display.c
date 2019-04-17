@@ -19,15 +19,8 @@
 #include "line.h"
 #include "version.h"
 #include "wrapper.h"
-#include "utf8.h"
-
-struct text {
-#if COLOR
-	int t_fcolor;
-	int t_bcolor;
-#endif
-	unicode_t t_char;
-};
+#include "display.h"
+#include "syntax.h"
 
 struct video {
 	int v_flag;		/* Flags */
@@ -61,11 +54,6 @@ int chg_width, chg_height;
 
 #if COLOR
 static int hi_enable;
-static int hi_sstring;
-static int hi_scomment;
-static int hi_include;
-static int hi_pound_idx;
-static int hi_less_idx;
 #endif
 
 static int reframe(struct window *wp);
@@ -175,40 +163,6 @@ void vtmove(int row, int col)
 	vtcol = col;
 }
 
-#if COLOR
-/* syntax highlight for #include */
-static void syn_include(struct text *v_text)
-{
-	int i, j, k;
-
-	for (i = hi_pound_idx + 1; i< vtcol;) {
-		if (v_text[i].t_char != ' ')
-			break;
-		i++;
-	}
-
-	for (j = vtcol - 1; j > hi_pound_idx;) {
-		if (v_text[j].t_char != ' ')
-			break;
-		j--;
-	}
-
-	if (j - i == 6 &&
-		v_text[i].t_char == 'i' &&
-		v_text[i + 1].t_char == 'n' &&
-		v_text[i + 2].t_char == 'c' &&
-		v_text[i + 3].t_char == 'l' &&
-		v_text[i + 4].t_char == 'u' &&
-		v_text[i + 5].t_char == 'd' &&
-		v_text[i + 6].t_char == 'e') {
-		v_text[hi_pound_idx].t_fcolor = preprocfg;
-		for (k = i; k <= j; k++)
-			v_text[k].t_fcolor = preprocfg;
-		hi_include = TRUE;
-	}
-}
-#endif
-
 /*
  * Write a character to the virtual screen. The virtual row and
  * column are updated. If we are not yet on left edge, don't print
@@ -219,7 +173,6 @@ static void syn_include(struct text *v_text)
  */
 static void vtputc(int c)
 {
-	int i;
 	int ncol;
 	struct video *vp;	/* ptr to line being updated */
 
@@ -251,8 +204,7 @@ static void vtputc(int c)
 		vtputc('^');
 		vtputc(c ^ 0x40);
 #if COLOR
-		vp->v_text[vtcol - 1].t_fcolor = speckeyfg;
-		vp->v_text[vtcol - 2].t_fcolor = speckeyfg;
+		syntax_specialkey(vp->v_text, vtcol - 2, 2);
 #endif
 		return;
 	}
@@ -261,8 +213,7 @@ static void vtputc(int c)
 		vtputc('^');
 		vtputc('?');
 #if COLOR
-		vp->v_text[vtcol - 1].t_fcolor = speckeyfg;
-		vp->v_text[vtcol - 2].t_fcolor = speckeyfg;
+		syntax_specialkey(vp->v_text, vtcol - 2, 2);
 #endif
 		return;
 	}
@@ -273,9 +224,7 @@ static void vtputc(int c)
 		vtputc(hex[c >> 4]);
 		vtputc(hex[c & 15]);
 #if COLOR
-		vp->v_text[vtcol - 1].t_fcolor = speckeyfg;
-		vp->v_text[vtcol - 2].t_fcolor = speckeyfg;
-		vp->v_text[vtcol - 3].t_fcolor = speckeyfg;
+		syntax_specialkey(vp->v_text, vtcol - 3, 3);
 #endif
 		return;
 	}
@@ -298,54 +247,7 @@ static void vtputc(int c)
 #if COLOR
 	/* syntax highlight */
 	if (hi_enable == TRUE && (curbp->b_mode & MDCMOD) != 0) {
-		if (hi_scomment == TRUE)
-			vp->v_text[vtcol].t_fcolor = commentfg;
-		else if (c == '"') {
-			if (hi_sstring == FALSE) {
-				if (hi_pound_idx >= 0)
-					syn_include(vp->v_text);
-				hi_sstring = TRUE;
-				vp->v_text[vtcol].t_fcolor = stringfg;
-			} else {
-				if (vp->v_text[vtcol - 1].t_char != '\\' ||
-					hi_include == TRUE) {
-					hi_sstring = FALSE;
-					vp->v_text[vtcol].t_fcolor = stringfg;
-				} else {
-					vp->v_text[vtcol].t_fcolor = speccharfg;
-					vp->v_text[vtcol - 1].t_fcolor = speccharfg;
-				}
-			}
-		} else if (hi_sstring == TRUE) {
-			if (hi_include == FALSE &&
-				vp->v_text[vtcol - 1].t_char == '\\' &&
-				( c == '\\' || c == 'a' || c == 'b' || c == 'e'
-				|| c == 'n' || c == 'r' || c == 't' || c == 'v')) {
-				vp->v_text[vtcol].t_fcolor = speccharfg;
-				vp->v_text[vtcol - 1].t_fcolor = speccharfg;
-			} else
-				vp->v_text[vtcol].t_fcolor = stringfg;
-		} else if (c == '#' && hi_pound_idx < 0) {
-			for (i = 0; i < vtcol; i++) {
-				if (vp->v_text[i].t_char != ' ')
-					break;
-			}
-			if (i == vtcol)
-				hi_pound_idx = vtcol;
-		} else if (c == '<' && hi_pound_idx >= 0 && hi_less_idx < 0) {
-			syn_include(vp->v_text);
-			if (hi_include == TRUE) {
-				vp->v_text[vtcol].t_fcolor = preprocfg;
-				hi_less_idx = vtcol;
-			}
-		} else if (c == '>' && hi_include == TRUE) {
-			for (i = hi_less_idx; i <= vtcol; i++)
-				vp->v_text[i].t_fcolor = stringfg;
-		} else if (c == '/' && vtcol > 0 && vp->v_text[vtcol - 1].t_char == '/') {
-			vp->v_text[vtcol].t_fcolor = commentfg;
-			vp->v_text[vtcol - 1].t_fcolor = commentfg;
-			hi_scomment = TRUE;
-		}
+		syntax_c_handle(vp->v_text, vtcol);
 	}
 #endif
 
@@ -593,11 +495,8 @@ static void show_line(struct line *lp)
 {
 #if COLOR
 	hi_enable = TRUE;
-	hi_sstring = FALSE;
-	hi_scomment = FALSE;
-	hi_include = FALSE;
-	hi_pound_idx = -1;
-	hi_less_idx = -1;
+	if ((curbp->b_mode & MDCMOD) != 0)
+		syntax_c_line_init();
 #endif
 	int i = 0, len = llength(lp);
 
