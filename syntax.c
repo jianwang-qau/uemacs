@@ -23,6 +23,7 @@ static int typefg = 0x87FFAF;		/* type forgrnd color */
 static int statefg = 0xFCE94F;		/* statement forgrnd color */
 static int labelfg = 0xFCE94F;		/* label forgrnd color */
 static int condfg = 0xFCE94F;		/* conditional forgrnd color */
+static int repeatfg = 0xFCE94F;		/* repeat forgrnd color */
 
 static char *arr_preproc_if[] = {"if", "ifdef" , "ifndef", NULL};
 static char *arr_preproc_else[] = {"else", "endif", NULL};
@@ -36,6 +37,7 @@ static char *arr_state[] = {
 };
 static char *arr_label[] = {"case", "default", NULL};
 static char *arr_cond[] = {"if", "else", "switch", NULL};
+static char *arr_repeat[] = {"while", "for", "do", NULL};
 
 /* syntax highlight flag */
 static int hi_sstring;	/* single line string */
@@ -209,6 +211,8 @@ static void syn_other(struct text *v_text, int vtcol)
 		syn_fcolor(v_text, begin, end, labelfg);
 	else if (arr_find(arr_cond, synbuf) == TRUE)
 		syn_fcolor(v_text, begin, end, condfg);
+	else if (arr_find(arr_repeat, synbuf) == TRUE)
+		syn_fcolor(v_text, begin, end, repeatfg);
 }
 
 static void syn_find(struct text *v_text, int begin, int end, int *pbegin, int *pend)
