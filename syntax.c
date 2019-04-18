@@ -64,7 +64,7 @@ static int hi_nonempty_idx;	/* nonempty char index */
 
 static void syn_include(struct text *v_text, int vtcol);
 static void syn_preproc(struct text *v_text, int vtcol);
-static void syn_other(struct text *v_text, int vtcol);
+static int syn_other(struct text *v_text, int vtcol);
 
 static void syn_find(struct text *v_text, int begin, int end, int *pbegin, int *pend);
 static void syn_trim(struct text *v_text, int begin, int end, int *pbegin, int *pend);
@@ -99,7 +99,7 @@ void syntax_c_line_init()
 /* syntax highlight handle for c */
 void syntax_c_handle(struct text *v_text, int vtcol)
 {
-	int i;
+	int i, ret;
 	int c = v_text[vtcol].t_char;
 
 	if (c != ' ' && hi_nonempty_idx < 0)
@@ -107,9 +107,16 @@ void syntax_c_handle(struct text *v_text, int vtcol)
 
 	if (hi_scomment == TRUE)
 		v_text[vtcol].t_fcolor = commentfg;
-	else if (hi_macro == TRUE)
-		v_text[vtcol].t_fcolor = macrofg;
-	else if (hi_preproc_if == TRUE)
+	else if (hi_macro == TRUE) {
+		ret = FALSE;
+		if (is_separator(c)) {
+			if (hi_nonempty_idx >= 0)
+				ret = syn_other(v_text, vtcol);
+			hi_nonempty_idx = -1;
+		}
+		if (ret == FALSE)
+			v_text[vtcol].t_fcolor = macrofg;
+	} else if (hi_preproc_if == TRUE)
 		v_text[vtcol].t_fcolor = preprocfg;
 	else if (c == '"') {
 		if (hi_sstring == FALSE) {
@@ -214,7 +221,7 @@ static void syn_preproc(struct text *v_text, int vtcol)
 }
 
 /* syntax highlight for other */
-static void syn_other(struct text *v_text, int vtcol)
+static int syn_other(struct text *v_text, int vtcol)
 {
 	int begin, end;
 	int len;
@@ -224,37 +231,58 @@ static void syn_other(struct text *v_text, int vtcol)
 	/* it is number */
 	if (synbuf[0] == '.' || is_digit(synbuf[0])) {
 		len = strlen(synbuf);
-		if (is_hex_str(synbuf))
+		if (is_hex_str(synbuf)) {
 			syn_fcolor(v_text, begin, end, numberfg);
-		else if (synbuf[len - 1] == 'f' || synbuf[len - 1] == 'F') {
+			return TRUE;
+		}
+		if (synbuf[len - 1] == 'f' || synbuf[len - 1] == 'F') {
 			synbuf[len - 1] = '\0';
 			if (is_octal_str(synbuf) || is_int_str(synbuf) ||
-				is_float_str(synbuf))
+				is_float_str(synbuf)) {
 				syn_fcolor(v_text, begin, end, numberfg);
-		} else {
-			if (is_octal_str(synbuf)) {
-				syn_fcolor(v_text, begin, begin, oct1stfg);
-				syn_fcolor(v_text, begin + 1, end, numberfg);
-			} else if (is_int_str(synbuf) || is_float_str(synbuf))
-				syn_fcolor(v_text, begin, end, numberfg);
+				return TRUE;
+			}
 		}
-		return;
+		if (is_octal_str(synbuf)) {
+			syn_fcolor(v_text, begin, begin, oct1stfg);
+			syn_fcolor(v_text, begin + 1, end, numberfg);
+			return TRUE;
+		} else if (is_int_str(synbuf) || is_float_str(synbuf)) {
+			syn_fcolor(v_text, begin, end, numberfg);
+			return TRUE;
+		}
+		return FALSE;
 	}
 
-	if (arr_find(arr_type, synbuf) == TRUE)
+	if (arr_find(arr_type, synbuf) == TRUE) {
 		syn_fcolor(v_text, begin, end, typefg);
-	else if (arr_find(arr_struct, synbuf) == TRUE)
+		return TRUE;
+	}
+	if (arr_find(arr_struct, synbuf) == TRUE) {
 		syn_fcolor(v_text, begin, end, structfg);
-	else if (arr_find(arr_storage, synbuf) == TRUE)
+		return TRUE;
+	}
+	if (arr_find(arr_storage, synbuf) == TRUE) {
 		syn_fcolor(v_text, begin, end, storagefg);
-	else if (arr_find(arr_state, synbuf) == TRUE)
+		return TRUE;
+	}
+	if (arr_find(arr_state, synbuf) == TRUE) {
 		syn_fcolor(v_text, begin, end, statefg);
-	else if (arr_find(arr_label, synbuf) == TRUE)
+		return TRUE;
+	}
+	if (arr_find(arr_label, synbuf) == TRUE) {
 		syn_fcolor(v_text, begin, end, labelfg);
-	else if (arr_find(arr_cond, synbuf) == TRUE)
+		return TRUE;
+	}
+	if (arr_find(arr_cond, synbuf) == TRUE) {
 		syn_fcolor(v_text, begin, end, condfg);
-	else if (arr_find(arr_repeat, synbuf) == TRUE)
+		return TRUE;
+	}
+	if (arr_find(arr_repeat, synbuf) == TRUE) {
 		syn_fcolor(v_text, begin, end, repeatfg);
+		return TRUE;
+	}
+	return FALSE;
 }
 
 static void syn_find(struct text *v_text, int begin, int end, int *pbegin, int *pend)
