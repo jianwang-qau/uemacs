@@ -68,6 +68,7 @@ static void syn_trim(struct text *v_text, int begin, int end, int *pbegin, int *
 static void syn_fcolor(struct text *v_text, int begin, int end, int fcolor);
 
 static int arr_find(char **arr, char *str);
+static int is_separator(int c);
 
 /* syntax highlight for special key */
 void syntax_specialkey(struct text *v_text, int start, int len)
@@ -152,14 +153,13 @@ void syntax_c_handle(struct text *v_text, int vtcol)
 		v_text[vtcol].t_fcolor = commentfg;
 		v_text[vtcol - 1].t_fcolor = commentfg;
 		hi_scomment = TRUE;
-	} else if (c == ' ') {
-		if (hi_pound_idx >= 0 && hi_preproc == FALSE)
-			syn_preproc(v_text, vtcol);
-		else if (hi_nonempty_idx >= 0)
+	} else if (c == ' ' && hi_pound_idx >= 0 && hi_preproc == FALSE)
+		syn_preproc(v_text, vtcol);
+	else if (is_separator(c)) {
+		if (hi_nonempty_idx >= 0)
 			syn_other(v_text, vtcol);
 		hi_nonempty_idx = -1;
-	} else if (c == '(')
-		hi_nonempty_idx = -1;
+	}
 }
 
 /* syntax highlight line end for c */
@@ -286,6 +286,20 @@ static int arr_find(char **arr, char *str)
 	for (i = 0; arr[i] != NULL; i++)
 		if (strcmp(arr[i], str) == 0)
 			return TRUE;
+	return FALSE;
+}
+
+static int is_separator(int c)
+{
+	int i;
+	static char *str = " (){}[];,>=<+-*/%&|";
+
+	if (c > 0x7f)
+		return FALSE;
+	for (i = 0; str[i] != '\0'; i++) {
+		if (c == str[i])
+			return TRUE;
+	}
 	return FALSE;
 }
 
