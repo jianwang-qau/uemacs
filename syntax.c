@@ -14,12 +14,12 @@
 static char synbuf[SYNLEN + 1];
 
 /* syntax highlight color */
-static int speckeyfg = 0x00D8FF;	/* special key forgrnd color */
-static int speccharfg = 0xFFD2D3;	/* special char forgrnd color */
-static int commentfg = 0x00E8E6;	/* comment forgrnd color */
-static int stringfg = 0xBB75A6;	/* string forgrnd color */
-static int preprocfg = 0x00D8FF;	/* preprocess forgrnd color */
-static int typefg = 0x00FFB1;	/* type forgrnd color */
+static int speckeyfg = 0x5FD7FF;	/* special key forgrnd color */
+static int speccharfg = 0xFFD7D7;	/* special char forgrnd color */
+static int commentfg = 0x34E2E2;	/* comment forgrnd color */
+static int stringfg = 0xAD7FA8;		/* string forgrnd color */
+static int preprocfg = 0x5FD7FF;	/* preprocess forgrnd color */
+static int typefg = 0x87FFAF;		/* type forgrnd color */
 
 static char *arr_preproc_if[] = {"if", "ifdef" , "ifndef", NULL};
 static char *arr_preproc_else[] = {"else", "endif", NULL};
