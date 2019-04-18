@@ -22,6 +22,7 @@ static int preprocfg = 0x5FD7FF;	/* preprocess forgrnd color */
 static int macrofg = 0x5FD7FF;		/* macro forgrnd color */
 static int typefg = 0x87FFAF;		/* type forgrnd color */
 static int structfg = 0x87FFAF;		/* structure forgrnd color */
+static int storagefg = 0x87FFAF;	/* storage class forgrnd color */
 static int statefg = 0xFCE94F;		/* statement forgrnd color */
 static int labelfg = 0xFCE94F;		/* label forgrnd color */
 static int condfg = 0xFCE94F;		/* conditional forgrnd color */
@@ -36,6 +37,9 @@ static char *arr_type[] = {
 	NULL
 };
 static char *arr_struct[] = {"struct", "union" , "enum", "typedef", NULL};
+static char *arr_storage[] = {
+	"static", "register", "auto", "volatile", "extern", "const", NULL
+};
 static char *arr_state[] = {
 	"goto", "break", "return", "continue", "asm", NULL
 };
@@ -217,6 +221,8 @@ static void syn_other(struct text *v_text, int vtcol)
 		syn_fcolor(v_text, begin, end, typefg);
 	else if (arr_find(arr_struct, synbuf) == TRUE)
 		syn_fcolor(v_text, begin, end, structfg);
+	else if (arr_find(arr_storage, synbuf) == TRUE)
+		syn_fcolor(v_text, begin, end, storagefg);
 	else if (arr_find(arr_state, synbuf) == TRUE)
 		syn_fcolor(v_text, begin, end, statefg);
 	else if (arr_find(arr_label, synbuf) == TRUE)
