@@ -155,7 +155,7 @@ vmsvt.o: vmsvt.c estruct.h edef.h
 vt52.o: vt52.c estruct.h edef.h
 window.o: window.c estruct.h edef.h
 word.o: word.c estruct.h edef.h
-syntax.o: syntax.c estruct.h utf8.h display.h
+syntax.o: syntax.c estruct.h util.h utf8.h display.h
 
 # DEPENDENCIES MUST END AT END OF FILE
 # IF YOU PUT STUFF HERE IT WILL GO AWAY

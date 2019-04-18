@@ -8,6 +8,7 @@
 #if COLOR
 
 #include <string.h>
+#include "util.h"
 #include "syntax.h"
 
 #define SYNLEN	20
@@ -27,6 +28,8 @@ static int statefg = 0xFCE94F;		/* statement forgrnd color */
 static int labelfg = 0xFCE94F;		/* label forgrnd color */
 static int condfg = 0xFCE94F;		/* conditional forgrnd color */
 static int repeatfg = 0xFCE94F;		/* repeat forgrnd color */
+static int numberfg = 0xAD7FA8;		/* number forgrnd color */
+static int oct1stfg = 0x5FD7FF;		/* octal first forgrnd color */
 
 static char *arr_macro[] = {"define", "undef", NULL};
 static char *arr_preproc_if[] = {"if", "ifdef" , "ifndef", NULL};
@@ -214,8 +217,29 @@ static void syn_preproc(struct text *v_text, int vtcol)
 static void syn_other(struct text *v_text, int vtcol)
 {
 	int begin, end;
+	int len;
 
 	syn_find(v_text, hi_nonempty_idx, vtcol - 1, &begin, &end);
+
+	/* it is number */
+	if (synbuf[0] == '.' || is_digit(synbuf[0])) {
+		len = strlen(synbuf);
+		if (is_hex_str(synbuf))
+			syn_fcolor(v_text, begin, end, numberfg);
+		else if (synbuf[len - 1] == 'f' || synbuf[len - 1] == 'F') {
+			synbuf[len - 1] = '\0';
+			if (is_octal_str(synbuf) || is_int_str(synbuf) ||
+				is_float_str(synbuf))
+				syn_fcolor(v_text, begin, end, numberfg);
+		} else {
+			if (is_octal_str(synbuf)) {
+				syn_fcolor(v_text, begin, begin, oct1stfg);
+				syn_fcolor(v_text, begin + 1, end, numberfg);
+			} else if (is_int_str(synbuf) || is_float_str(synbuf))
+				syn_fcolor(v_text, begin, end, numberfg);
+		}
+		return;
+	}
 
 	if (arr_find(arr_type, synbuf) == TRUE)
 		syn_fcolor(v_text, begin, end, typefg);
