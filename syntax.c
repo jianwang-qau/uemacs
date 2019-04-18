@@ -19,12 +19,14 @@ static int speccharfg = 0xFFD7D7;	/* special char forgrnd color */
 static int commentfg = 0x34E2E2;	/* comment forgrnd color */
 static int stringfg = 0xAD7FA8;		/* string forgrnd color */
 static int preprocfg = 0x5FD7FF;	/* preprocess forgrnd color */
+static int macrofg = 0x5FD7FF;		/* macro forgrnd color */
 static int typefg = 0x87FFAF;		/* type forgrnd color */
 static int statefg = 0xFCE94F;		/* statement forgrnd color */
 static int labelfg = 0xFCE94F;		/* label forgrnd color */
 static int condfg = 0xFCE94F;		/* conditional forgrnd color */
 static int repeatfg = 0xFCE94F;		/* repeat forgrnd color */
 
+static char *arr_macro[] = {"define", "undef", NULL};
 static char *arr_preproc_if[] = {"if", "ifdef" , "ifndef", NULL};
 static char *arr_preproc_else[] = {"else", "endif", NULL};
 static char *arr_type[] = {
@@ -43,6 +45,7 @@ static char *arr_repeat[] = {"while", "for", "do", NULL};
 static int hi_sstring;	/* single line string */
 static int hi_scomment;	/* single line comment */
 static int hi_include;	/* #include */
+static int hi_macro;	/* macro */
 static int hi_preproc_if;	/* #if */
 static int hi_preproc;	/* preproc */
 
@@ -74,6 +77,7 @@ void syntax_c_line_init()
 	hi_sstring = FALSE;
 	hi_scomment = FALSE;
 	hi_include = FALSE;
+	hi_macro = FALSE;
 	hi_preproc_if = FALSE;
 	hi_preproc = FALSE;
 
@@ -93,6 +97,8 @@ void syntax_c_handle(struct text *v_text, int vtcol)
 
 	if (hi_scomment == TRUE)
 		v_text[vtcol].t_fcolor = commentfg;
+	else if (hi_macro == TRUE)
+		v_text[vtcol].t_fcolor = macrofg;
 	else if (hi_preproc_if == TRUE)
 		v_text[vtcol].t_fcolor = preprocfg;
 	else if (c == '"') {
@@ -178,20 +184,22 @@ static void syn_include(struct text *v_text, int vtcol)
 static void syn_preproc(struct text *v_text, int vtcol)
 {
 	int begin, end;
-	int bFind = FALSE;
+	int fcolor = CLR_NONE;
 
 	syn_find(v_text, hi_pound_idx + 1, vtcol - 1, &begin, &end);
 
-	if (arr_find(arr_preproc_if, synbuf) == TRUE) {
-		bFind = TRUE;
+	if (arr_find(arr_macro, synbuf) == TRUE) {
+		fcolor = macrofg;
+		hi_macro = TRUE;
+	} else if (arr_find(arr_preproc_if, synbuf) == TRUE) {
+		fcolor = preprocfg;
 		hi_preproc_if = TRUE;
-	} else if (arr_find(arr_preproc_else, synbuf) == TRUE) {
-		bFind = TRUE;
-	}
+	} else if (arr_find(arr_preproc_else, synbuf) == TRUE)
+		fcolor = preprocfg;
 
-	if (bFind == TRUE) {
-		v_text[hi_pound_idx].t_fcolor = preprocfg;
-		syn_fcolor(v_text, begin, end, preprocfg);
+	if (fcolor != CLR_NONE) {
+		v_text[hi_pound_idx].t_fcolor = fcolor;
+		syn_fcolor(v_text, begin, end, fcolor);
 		hi_preproc = TRUE;
 	}
 }
