@@ -20,7 +20,10 @@
 #include "version.h"
 #include "wrapper.h"
 #include "display.h"
+
+#if COLOR
 #include "syntax.h"
+#endif
 
 struct video {
 	int v_flag;		/* Flags */
@@ -70,6 +73,10 @@ static void mlputi(int i, int r);
 static void mlputli(long l, int r);
 static void mlputf(int s);
 static int newscreensize(int h, int w);
+
+#if COLOR
+static int mcomment_state(struct line *startp, struct line *endp);
+#endif
 
 #if RAINBOW
 static void putline(int row, int col, char *buf);
@@ -521,6 +528,10 @@ static void updone(struct window *wp)
 {
 	struct line *lp;	/* line to update */
 	int sline;	/* physical screen line to update */
+	int endrow;	/* end row to update */
+#if COLOR
+	int state;	/* multi line comment state */
+#endif
 
 	/* search down the line we want */
 	lp = wp->w_linep;
@@ -530,16 +541,31 @@ static void updone(struct window *wp)
 		lp = lforw(lp);
 	}
 
-	/* and update the virtual line */
-	vscreen[sline]->v_flag |= VFCHG;
-	vscreen[sline]->v_flag &= ~VFREQ;
-	vtmove(sline, 0);
-	show_line(lp);
-#if	COLOR
-	vscreen[sline]->v_rfcolor = wp->w_fcolor;
-	vscreen[sline]->v_rbcolor = wp->w_bcolor;
+#if COLOR
+	endrow = wp->w_toprow + wp->w_ntrows;
+	state = mcomment_state(wp->w_bufp->b_linep, lp);
+	syntax_mcomment_init(state);
+#else
+	endrow = sline + 1;
 #endif
-	vteeol();
+	while (sline < endrow) {
+
+		/* and update the virtual line */
+		vscreen[sline]->v_flag |= VFCHG;
+		vscreen[sline]->v_flag &= ~VFREQ;
+		vtmove(sline, 0);
+		if (lp != wp->w_bufp->b_linep) {
+			/* if we are not at the end */
+			show_line(lp);
+			lp = lforw(lp);
+		}
+#if	COLOR
+		vscreen[sline]->v_rfcolor = wp->w_fcolor;
+		vscreen[sline]->v_rbcolor = wp->w_bcolor;
+#endif
+		vteeol();
+		++sline;
+	}
 }
 
 /*
@@ -552,7 +578,14 @@ static void updall(struct window *wp)
 {
 	struct line *lp;	/* line to update */
 	int sline;	/* physical screen line to update */
+#if COLOR
+	int state;	/* multi line comment state */
+#endif
 
+#if COLOR
+	state = mcomment_state(wp->w_bufp->b_linep, wp->w_linep);
+	syntax_mcomment_init(state);
+#endif
 	/* search down the lines, updating them */
 	lp = wp->w_linep;
 	sline = wp->w_toprow;
@@ -1672,5 +1705,30 @@ static int newscreensize(int h, int w)
 	update(TRUE);
 	return TRUE;
 }
+
+#if COLOR
+static int mcomment_state(struct line *startp, struct line *endp)
+{
+	int i, state = FALSE;
+	struct line *lp;
+
+	lp = startp;
+	while (lp != endp) {
+		for (i = 1; i < lp->l_used; i++) {
+			if (state == FALSE &&
+				lp->l_text[i - 1] == '/' && lp->l_text[i] == '*') {
+				state = TRUE;
+				i++;
+			} else if (state == TRUE &&
+				lp->l_text[i - 1] == '*' && lp->l_text[i] == '/') {
+				state = FALSE;
+				i++;
+			}
+		}
+		lp = lforw(lp);
+	}
+	return state;
+}
+#endif
 
 #endif

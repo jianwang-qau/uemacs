@@ -51,15 +51,17 @@ static char *arr_cond[] = {"if", "else", "switch", NULL};
 static char *arr_repeat[] = {"while", "for", "do", NULL};
 
 /* syntax highlight flag */
-static int hi_sstring;	/* single line string */
-static int hi_scomment;	/* single line comment */
-static int hi_include;	/* #include */
-static int hi_macro;	/* macro */
+static int hi_sstring;		/* single line string */
+static int hi_scomment;		/* single line comment */
+static int hi_mcomment;		/* multi line comment */
+static int hi_include;		/* #include */
+static int hi_macro;		/* macro */
 static int hi_preproc_if;	/* #if */
-static int hi_preproc;	/* preproc */
+static int hi_preproc;		/* preproc */
 
+static int hi_mcomment_idx;	/* multi line comment index */
 static int hi_pound_idx;	/* # index */
-static int hi_less_idx;	/* #include < index */
+static int hi_less_idx;		/* #include < index */
 static int hi_nonempty_idx;	/* nonempty char index */
 
 static void syn_include(struct text *v_text, int vtcol);
@@ -81,6 +83,12 @@ void syntax_specialkey(struct text *v_text, int start, int len)
 		v_text[start + i].t_fcolor = speckeyfg;
 }
 
+/* syntax highlight mcomment init */
+void syntax_mcomment_init(int state)
+{
+	hi_mcomment = state;
+}
+
 /* syntax highlight line init for c */
 void syntax_c_line_init()
 {
@@ -91,6 +99,7 @@ void syntax_c_line_init()
 	hi_preproc_if = FALSE;
 	hi_preproc = FALSE;
 
+	hi_mcomment_idx = -1;
 	hi_pound_idx = -1;
 	hi_less_idx = -1;
 	hi_nonempty_idx = -1;
@@ -107,7 +116,16 @@ void syntax_c_handle(struct text *v_text, int vtcol)
 
 	if (hi_scomment == TRUE)
 		v_text[vtcol].t_fcolor = commentfg;
-	else if (hi_macro == TRUE) {
+	else if (hi_mcomment == TRUE) {
+		v_text[vtcol].t_fcolor = commentfg;
+		if (c == '/' && vtcol > 0 && v_text[vtcol - 1].t_char == '*') {
+			if (hi_mcomment_idx > 0) {
+				if (vtcol - hi_mcomment_idx >= 2)
+					hi_mcomment = FALSE;
+			} else
+				hi_mcomment = FALSE;
+		}
+	} else if (hi_macro == TRUE) {
 		ret = FALSE;
 		if (is_separator(c)) {
 			if (hi_nonempty_idx >= 0)
@@ -163,6 +181,11 @@ void syntax_c_handle(struct text *v_text, int vtcol)
 		v_text[vtcol].t_fcolor = commentfg;
 		v_text[vtcol - 1].t_fcolor = commentfg;
 		hi_scomment = TRUE;
+	} else if (c == '*' && vtcol > 0 && v_text[vtcol - 1].t_char == '/') {
+		v_text[vtcol].t_fcolor = commentfg;
+		v_text[vtcol - 1].t_fcolor = commentfg;
+		hi_mcomment_idx = vtcol;
+		hi_mcomment = TRUE;
 	} else if (c == ' ' && hi_pound_idx >= 0 && hi_preproc == FALSE)
 		syn_preproc(v_text, vtcol);
 	else if (is_separator(c)) {
