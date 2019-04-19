@@ -31,6 +31,8 @@ static int condfg = 0xFCE94F;		/* conditional forgrnd color */
 static int repeatfg = 0xFCE94F;		/* repeat forgrnd color */
 static int numberfg = 0xAD7FA8;		/* number forgrnd color */
 static int oct1stfg = 0x5FD7FF;		/* octal first forgrnd color */
+static int errorfg = 0xEEEEEC;		/* error forgrnd color */
+static int errorbg = 0xEF2929;		/* error bacgrnd color */
 
 static char *arr_macro[] = {"define", "undef", NULL};
 static char *arr_preproc_if[] = {"if", "ifdef" , "ifndef", NULL};
@@ -72,9 +74,14 @@ static void syn_include(struct text *v_text, int vtcol);
 static void syn_preproc(struct text *v_text, int vtcol);
 static int syn_other(struct text *v_text, int vtcol);
 
-static void syn_find(struct text *v_text, int begin, int end, int *pbegin, int *pend);
-static void syn_trim(struct text *v_text, int begin, int end, int *pbegin, int *pend);
-static void syn_fcolor(struct text *v_text, int begin, int end, int fcolor);
+static void syn_find(struct text *v_text, int begin, int end,
+	int *pbegin, int *pend);
+static void syn_trim(struct text *v_text, int begin, int end,
+	int *pbegin, int *pend);
+static void syn_fcolor(struct text *v_text, int begin, int end,
+	int fcolor);
+static void syn_color(struct text *v_text, int begin, int end,
+	int fcolor, int bcolor);
 
 static int arr_find(char **arr, char *str);
 static int is_separator(int c);
@@ -128,6 +135,8 @@ void syntax_c_handle(struct text *v_text, int vtcol)
 					hi_mcomment = FALSE;
 			} else
 				hi_mcomment = FALSE;
+		} else if (c == '*' && vtcol > 0 && v_text[vtcol - 1].t_char == '/') {
+			syn_color(v_text, vtcol - 1, vtcol - 1, errorfg, errorbg);
 		}
 	} else if (hi_macro == TRUE) {
 		ret = FALSE;
@@ -190,6 +199,9 @@ void syntax_c_handle(struct text *v_text, int vtcol)
 		v_text[vtcol - 1].t_fcolor = commentfg;
 		hi_mcomment_idx = vtcol;
 		hi_mcomment = TRUE;
+	} else if (c == '/' && vtcol > 0 && v_text[vtcol - 1].t_char == '*' &&
+		hi_mcomment == FALSE) {
+		syn_color(v_text, vtcol - 1, vtcol, errorfg, errorbg);
 	} else if (c == ' ' && hi_pound_idx >= 0 && hi_preproc == FALSE)
 		syn_preproc(v_text, vtcol);
 	else if (is_separator(c)) {
@@ -354,12 +366,24 @@ static void syn_trim(struct text *v_text, int begin, int end, int *pbegin, int *
 	*pend = j;
 }
 
-static void syn_fcolor(struct text *v_text, int begin, int end, int fcolor)
+static void syn_fcolor(struct text *v_text, int begin, int end,
+	int fcolor)
 {
 	int i;
 
 	for (i = begin; i <= end; i++)
 		v_text[i].t_fcolor = fcolor;
+}
+
+static void syn_color(struct text *v_text, int begin, int end,
+	int fcolor, int bcolor)
+{
+	int i;
+
+	for (i = begin; i <= end; i++) {
+		v_text[i].t_fcolor = fcolor;
+		v_text[i].t_bcolor = bcolor;
+	}
 }
 
 static int arr_find(char **arr, char *str)
