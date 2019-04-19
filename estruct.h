@@ -130,8 +130,8 @@
 #define	CTRLZ	0  /* add a ^Z at end of files under MSDOS only    */
 #define ADDCR	0  /* ajout d'un CR en fin de chaque ligne (ST520) */
 #define	NBRACE	1  /* new style brace matching command             */
-#define	REVSTA	0  /* Status line appears in reverse video         */
 
+#define	REVSTA	0  /* Status line appears in reverse video         */
 #define	COLOR	1  /* color commands and windows                   */
 
 #ifndef	AUTOCONF
