@@ -154,6 +154,9 @@ int main(int argc, char **argv)
 	edinit("main");		/* Buffers, windows */
 	varinit();		/* user variables */
 
+	/* Initialize syntax */
+	syninit();
+
 	viewflag = FALSE;	/* view mode defaults off in command line */
 	gotoflag = FALSE;	/* set to off to begin with */
 	searchflag = FALSE;	/* set to off to begin with */
@@ -851,6 +854,9 @@ int cexit(int status)
 
 	/* and the video buffers */
 	vtfree();
+
+	/* and the syntax buffers */
+	synfree();
 
 #undef	exit
 	exit(status);

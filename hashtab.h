@@ -22,6 +22,7 @@ typedef struct hashitem_S
 
 /* The address of "hash_removed" is used as a magic number for hi_key to
  * indicate a removed item. */
+extern char_u  hash_removed;
 #define HI_KEY_REMOVED &hash_removed
 #define HASHITEM_EMPTY(hi) ((hi)->hi_key == NULL || (hi)->hi_key == &hash_removed)
 

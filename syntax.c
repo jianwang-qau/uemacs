@@ -9,6 +9,7 @@
 
 #include <string.h>
 #include "util.h"
+#include "hashtab.h"
 #include "syntax.h"
 
 #define SYNLEN	20
@@ -56,6 +57,19 @@ static char *arr_label[] = {"case", "default", NULL};
 static char *arr_cond[] = {"if", "else", "switch", NULL};
 static char *arr_repeat[] = {"while", "for", "do", NULL};
 
+/* syntax hash table */
+hashtab_T htab_macro;
+hashtab_T htab_preproc_if;
+hashtab_T htab_preproc_else;
+hashtab_T htab_type;
+hashtab_T htab_constant;
+hashtab_T htab_struct;
+hashtab_T htab_storage;
+hashtab_T htab_state;
+hashtab_T htab_label;
+hashtab_T htab_cond;
+hashtab_T htab_repeat;
+
 /* syntax highlight flag */
 static int hi_sstring;		/* single line string */
 static int hi_scomment;		/* single line comment */
@@ -83,8 +97,57 @@ static void syn_fcolor(struct text *v_text, int begin, int end,
 static void syn_color(struct text *v_text, int begin, int end,
 	int fcolor, int bcolor);
 
-static int arr_find(char **arr, char *str);
+static void hash_addarr(hashtab_T *ht, char **arr);
+static int hash_haskey(hashtab_T *ht, char *key);
 static int is_separator(int c);
+
+/*
+ * Initialize the data structures used by the syntax code
+ */
+void syninit(void)
+{
+	hash_init(&htab_macro);
+	hash_init(&htab_preproc_if);
+	hash_init(&htab_preproc_else);
+	hash_init(&htab_type);
+	hash_init(&htab_constant);
+	hash_init(&htab_struct);
+	hash_init(&htab_storage);
+	hash_init(&htab_state);
+	hash_init(&htab_label);
+	hash_init(&htab_cond);
+	hash_init(&htab_repeat);
+
+	hash_addarr(&htab_macro, arr_macro);
+	hash_addarr(&htab_preproc_if, arr_preproc_if);
+	hash_addarr(&htab_preproc_else, arr_preproc_else);
+	hash_addarr(&htab_type, arr_type);
+	hash_addarr(&htab_constant, arr_constant);
+	hash_addarr(&htab_struct, arr_struct);
+	hash_addarr(&htab_storage, arr_storage);
+	hash_addarr(&htab_state, arr_state);
+	hash_addarr(&htab_label, arr_label);
+	hash_addarr(&htab_cond, arr_cond);
+	hash_addarr(&htab_repeat, arr_repeat);
+}
+
+/*
+ * free up all the dynamically allocated syntax structures
+ */
+void synfree(void)
+{
+	hash_clear(&htab_macro);
+	hash_clear(&htab_preproc_if);
+	hash_clear(&htab_preproc_else);
+	hash_clear(&htab_type);
+	hash_clear(&htab_constant);
+	hash_clear(&htab_struct);
+	hash_clear(&htab_storage);
+	hash_clear(&htab_state);
+	hash_clear(&htab_label);
+	hash_clear(&htab_cond);
+	hash_clear(&htab_repeat);
+}
 
 /* syntax highlight for special key */
 void syntax_specialkey(struct text *v_text, int start, int len)
@@ -264,14 +327,14 @@ static void syn_preproc(struct text *v_text, int vtcol)
 
 	syn_find(v_text, hi_pound_idx + 1, vtcol - 1, &begin, &end);
 
-	if (arr_find(arr_macro, synbuf) == TRUE) {
+	if (hash_haskey(&htab_macro, synbuf)) {
 		fcolor = macrofg;
 		hi_macro = TRUE;
-	} else if (arr_find(arr_preproc_if, synbuf) == TRUE) {
+	} else if (hash_haskey(&htab_preproc_if, synbuf)) {
 		fcolor = preprocfg;
 		hi_preproc_if = TRUE;
 		hi_nonempty_idx = -1;
-	} else if (arr_find(arr_preproc_else, synbuf) == TRUE)
+	} else if (hash_haskey(&htab_preproc_else, synbuf))
 		fcolor = preprocfg;
 
 	if (fcolor != CLR_NONE) {
@@ -315,35 +378,35 @@ static int syn_other(struct text *v_text, int vtcol)
 		return FALSE;
 	}
 
-	if (arr_find(arr_type, synbuf) == TRUE) {
+	if (hash_haskey(&htab_type, synbuf)) {
 		syn_fcolor(v_text, begin, end, typefg);
 		return TRUE;
 	}
-	if (arr_find(arr_constant, synbuf) == TRUE) {
+	if (hash_haskey(&htab_constant, synbuf)) {
 		syn_fcolor(v_text, begin, end, constantfg);
 		return TRUE;
 	}
-	if (arr_find(arr_struct, synbuf) == TRUE) {
+	if (hash_haskey(&htab_struct, synbuf)) {
 		syn_fcolor(v_text, begin, end, structfg);
 		return TRUE;
 	}
-	if (arr_find(arr_storage, synbuf) == TRUE) {
+	if (hash_haskey(&htab_storage, synbuf)) {
 		syn_fcolor(v_text, begin, end, storagefg);
 		return TRUE;
 	}
-	if (arr_find(arr_state, synbuf) == TRUE) {
+	if (hash_haskey(&htab_state, synbuf)) {
 		syn_fcolor(v_text, begin, end, statefg);
 		return TRUE;
 	}
-	if (arr_find(arr_label, synbuf) == TRUE) {
+	if (hash_haskey(&htab_label, synbuf)) {
 		syn_fcolor(v_text, begin, end, labelfg);
 		return TRUE;
 	}
-	if (arr_find(arr_cond, synbuf) == TRUE) {
+	if (hash_haskey(&htab_cond, synbuf)) {
 		syn_fcolor(v_text, begin, end, condfg);
 		return TRUE;
 	}
-	if (arr_find(arr_repeat, synbuf) == TRUE) {
+	if (hash_haskey(&htab_repeat, synbuf)) {
 		syn_fcolor(v_text, begin, end, repeatfg);
 		return TRUE;
 	}
@@ -408,14 +471,20 @@ static void syn_color(struct text *v_text, int begin, int end,
 	}
 }
 
-static int arr_find(char **arr, char *str)
+static void hash_addarr(hashtab_T *ht, char **arr)
 {
 	int i;
 
 	for (i = 0; arr[i] != NULL; i++)
-		if (strcmp(arr[i], str) == 0)
-			return TRUE;
-	return FALSE;
+		hash_add(ht, (char_u *)arr[i]);
+}
+
+static int hash_haskey(hashtab_T *ht, char *key)
+{
+	hashitem_T *hi;
+
+	hi = hash_find(ht, (char_u *)key);
+	return !HASHITEM_EMPTY(hi);
 }
 
 static int is_separator(int c)

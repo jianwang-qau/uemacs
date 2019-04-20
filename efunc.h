@@ -139,6 +139,10 @@ extern void mlputs(char *s);
 extern void getscreensize(int *widthp, int *heightp);
 extern void sizesignal(int signr);
 
+/* syntax.c */
+extern void syninit(void);
+extern void synfree(void);
+
 /* region.c */
 extern int killregion(int f, int n);
 extern int copyregion(int f, int n);
