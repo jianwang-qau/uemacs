@@ -2,10 +2,14 @@
 #define HASHTABLE_H_
 
 typedef unsigned char	char_u;
+typedef unsigned short	short_u;
 typedef unsigned long	long_u;
 
-#define OK	1
-#define FAIL	0
+#define STRLEN(s)	    strlen((char *)(s))
+#define STRCPY(d, s)	    strcpy((char *)(d), (char *)(s))
+#define STRNCPY(d, s, n)    strncpy((char *)(d), (char *)(s), (size_t)(n))
+#define STRCMP(d, s)	    strcmp((char *)(d), (char *)(s))
+#define STRNCMP(d, s, n)    strncmp((char *)(d), (char *)(s), (size_t)(n))
 
 /* Item for a hashtable.  "hi_key" can be one of three values:
  * NULL:	   Never been used

@@ -29,13 +29,13 @@ static long hash_count_lookup = 0;	/* count number of hashtab lookups */
 static long hash_count_perturb = 0;	/* count number of "misses" */
 #endif
 
+#define OK	1
+#define FAIL	0
 #define FALSE	0
 #define TRUE	1
 
 /* Magic value for algorithm that walks through the array. */
 #define PERTURB_SHIFT 5
-
-#define STRCMP(d, s)	    strcmp((char *)(d), (char *)(s))
 
 /* Magic number used for hashitem "hi_key" value indicating a deleted item.
  * Only the address is used. */
@@ -80,7 +80,6 @@ void hash_clear(hashtab_T *ht)
 	free(ht->ht_array);
 }
 
-#if defined(FEAT_SPELL) || defined(PROTO)
 /*
  * Free the array of a hash table and all the keys it contains.  The keys must
  * have been allocated.  "off" is the offset from the start of the allocate
@@ -102,7 +101,6 @@ void hash_clear_all(hashtab_T *ht, int off)
     }
     hash_clear(ht);
 }
-#endif
 
 /*
  * Find "key" in hashtable "ht".  "key" must not be NULL.

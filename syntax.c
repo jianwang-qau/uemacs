@@ -7,13 +7,42 @@
 
 #if COLOR
 
+#include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 #include "util.h"
 #include "hashtab.h"
 #include "syntax.h"
 
+#define IDX_MACRO		0
+#define IDX_PREPROC_IF		1
+#define IDX_PREPROC_ELSE	2
+#define IDX_TYPE		3
+#define IDX_CONSTANT		4
+#define IDX_STRUCT		5
+#define IDX_STORAGE		6
+#define IDX_STATE		7
+#define IDX_LABEL		8
+#define IDX_COND		9
+#define IDX_REPEAT		10
+
 #define SYNLEN	20
 static char synbuf[SYNLEN + 1];
+
+typedef struct color_S
+{
+	int fcolor;
+	int bcolor;
+} color_T;
+
+typedef struct colorindex_S
+{
+	short_u	ci_index;	/* index of color_T */
+	char_u	ci_keyw[1];	/* keyword */
+} colorindex_T;
+
+#define CI_KEY_OFF	offsetof(colorindex_T, ci_keyw)
+#define HI2CI(hi)	((colorindex_T *)((hi)->hi_key - CI_KEY_OFF))
 
 /* syntax highlight color */
 static int speckeyfg = 0x5FD7FF;	/* special key forgrnd color */
@@ -22,18 +51,32 @@ static int commentfg = 0x34E2E2;	/* comment forgrnd color */
 static int stringfg = 0xAD7FA8;		/* string forgrnd color */
 static int preprocfg = 0x5FD7FF;	/* preprocess forgrnd color */
 static int macrofg = 0x5FD7FF;		/* macro forgrnd color */
-static int typefg = 0x87FFAF;		/* type forgrnd color */
-static int constantfg = 0xAD7FA8;	/* constant forgrnd color */
-static int structfg = 0x87FFAF;		/* structure forgrnd color */
-static int storagefg = 0x87FFAF;	/* storage class forgrnd color */
-static int statefg = 0xFCE94F;		/* statement forgrnd color */
-static int labelfg = 0xFCE94F;		/* label forgrnd color */
-static int condfg = 0xFCE94F;		/* conditional forgrnd color */
-static int repeatfg = 0xFCE94F;		/* repeat forgrnd color */
+//static int typefg = 0x87FFAF;		/* type forgrnd color */
+//static int constantfg = 0xAD7FA8;	/* constant forgrnd color */
+//static int structfg = 0x87FFAF;	/* structure forgrnd color */
+//static int storagefg = 0x87FFAF;	/* storage class forgrnd color */
+//static int statefg = 0xFCE94F;	/* statement forgrnd color */
+//static int labelfg = 0xFCE94F;	/* label forgrnd color */
+//static int condfg = 0xFCE94F;		/* conditional forgrnd color */
+//static int repeatfg = 0xFCE94F;	/* repeat forgrnd color */
 static int numberfg = 0xAD7FA8;		/* number forgrnd color */
 static int oct1stfg = 0x5FD7FF;		/* octal first forgrnd color */
 static int errorfg = 0xEEEEEC;		/* error forgrnd color */
 static int errorbg = 0xEF2929;		/* error bacgrnd color */
+
+static color_T arr_color[] = {
+	{0x5FD7FF, CLR_NONE},	/* macro fg and bg color */
+	{0x5FD7FF, CLR_NONE},	/* preproc_if fg and bg color */
+	{0x5FD7FF, CLR_NONE},	/* preproc_else fg and bg color */
+	{0x87FFAF, CLR_NONE},	/* type fg and bg color */
+	{0xAD7FA8, CLR_NONE},	/* constant fg and bg color */
+	{0x87FFAF, CLR_NONE},	/* struct fg and bg color */
+	{0x87FFAF, CLR_NONE},	/* storage fg and bg color */
+	{0xFCE94F, CLR_NONE},	/* state fg and bg color */
+	{0xFCE94F, CLR_NONE},	/* label fg and bg color */
+	{0xFCE94F, CLR_NONE},	/* cond fg and bg color */
+	{0xFCE94F, CLR_NONE}	/* repeat fg and bg color */
+};
 
 static char *arr_macro[] = {"define", "undef", NULL};
 static char *arr_preproc_if[] = {"if", "ifdef" , "ifndef", NULL};
@@ -57,18 +100,8 @@ static char *arr_label[] = {"case", "default", NULL};
 static char *arr_cond[] = {"if", "else", "switch", NULL};
 static char *arr_repeat[] = {"while", "for", "do", NULL};
 
-/* syntax hash table */
-hashtab_T htab_macro;
-hashtab_T htab_preproc_if;
-hashtab_T htab_preproc_else;
-hashtab_T htab_type;
-hashtab_T htab_constant;
-hashtab_T htab_struct;
-hashtab_T htab_storage;
-hashtab_T htab_state;
-hashtab_T htab_label;
-hashtab_T htab_cond;
-hashtab_T htab_repeat;
+/* syntax keyword hashtable */
+static hashtab_T keywtab;
 
 /* syntax highlight flag */
 static int hi_sstring;		/* single line string */
@@ -97,8 +130,8 @@ static void syn_fcolor(struct text *v_text, int begin, int end,
 static void syn_color(struct text *v_text, int begin, int end,
 	int fcolor, int bcolor);
 
-static void hash_addarr(hashtab_T *ht, char **arr);
-static int hash_haskey(hashtab_T *ht, char *key);
+static void hash_addarr(hashtab_T *ht, char **arr, short_u idx);
+static int hash_findkey(hashtab_T *ht, char *key);
 static int is_separator(int c);
 
 /*
@@ -106,29 +139,19 @@ static int is_separator(int c);
  */
 void syninit(void)
 {
-	hash_init(&htab_macro);
-	hash_init(&htab_preproc_if);
-	hash_init(&htab_preproc_else);
-	hash_init(&htab_type);
-	hash_init(&htab_constant);
-	hash_init(&htab_struct);
-	hash_init(&htab_storage);
-	hash_init(&htab_state);
-	hash_init(&htab_label);
-	hash_init(&htab_cond);
-	hash_init(&htab_repeat);
+	hash_init(&keywtab);
 
-	hash_addarr(&htab_macro, arr_macro);
-	hash_addarr(&htab_preproc_if, arr_preproc_if);
-	hash_addarr(&htab_preproc_else, arr_preproc_else);
-	hash_addarr(&htab_type, arr_type);
-	hash_addarr(&htab_constant, arr_constant);
-	hash_addarr(&htab_struct, arr_struct);
-	hash_addarr(&htab_storage, arr_storage);
-	hash_addarr(&htab_state, arr_state);
-	hash_addarr(&htab_label, arr_label);
-	hash_addarr(&htab_cond, arr_cond);
-	hash_addarr(&htab_repeat, arr_repeat);
+	hash_addarr(&keywtab, arr_macro, IDX_MACRO);
+	hash_addarr(&keywtab, arr_preproc_if, IDX_PREPROC_IF);
+	hash_addarr(&keywtab, arr_preproc_else, IDX_PREPROC_ELSE);
+	hash_addarr(&keywtab, arr_type, IDX_TYPE);
+	hash_addarr(&keywtab, arr_constant, IDX_CONSTANT);
+	hash_addarr(&keywtab, arr_struct, IDX_STRUCT);
+	hash_addarr(&keywtab, arr_storage, IDX_STORAGE);
+	hash_addarr(&keywtab, arr_state, IDX_STATE);
+	hash_addarr(&keywtab, arr_label, IDX_LABEL);
+	hash_addarr(&keywtab, arr_cond, IDX_COND);
+	hash_addarr(&keywtab, arr_repeat, IDX_REPEAT);
 }
 
 /*
@@ -136,17 +159,7 @@ void syninit(void)
  */
 void synfree(void)
 {
-	hash_clear(&htab_macro);
-	hash_clear(&htab_preproc_if);
-	hash_clear(&htab_preproc_else);
-	hash_clear(&htab_type);
-	hash_clear(&htab_constant);
-	hash_clear(&htab_struct);
-	hash_clear(&htab_storage);
-	hash_clear(&htab_state);
-	hash_clear(&htab_label);
-	hash_clear(&htab_cond);
-	hash_clear(&htab_repeat);
+	hash_clear_all(&keywtab, CI_KEY_OFF);
 }
 
 /* syntax highlight for special key */
@@ -324,18 +337,25 @@ static void syn_preproc(struct text *v_text, int vtcol)
 {
 	int begin, end;
 	int fcolor = CLR_NONE;
+	int idx;
 
 	syn_find(v_text, hi_pound_idx + 1, vtcol - 1, &begin, &end);
 
-	if (hash_haskey(&htab_macro, synbuf)) {
-		fcolor = macrofg;
+	/* hash table search */
+	idx = hash_findkey(&keywtab, synbuf);
+
+	if (idx < 0)
+		return;
+
+	if (idx == IDX_MACRO) {
+		fcolor = arr_color[idx].fcolor;
 		hi_macro = TRUE;
-	} else if (hash_haskey(&htab_preproc_if, synbuf)) {
-		fcolor = preprocfg;
+	} else if (idx == IDX_PREPROC_IF) {
+		fcolor = arr_color[idx].fcolor;
 		hi_preproc_if = TRUE;
 		hi_nonempty_idx = -1;
-	} else if (hash_haskey(&htab_preproc_else, synbuf))
-		fcolor = preprocfg;
+	} else if (idx == IDX_PREPROC_ELSE)
+		fcolor = arr_color[idx].fcolor;
 
 	if (fcolor != CLR_NONE) {
 		v_text[hi_pound_idx].t_fcolor = fcolor;
@@ -349,6 +369,7 @@ static int syn_other(struct text *v_text, int vtcol)
 {
 	int begin, end;
 	int len;
+	int idx;
 
 	syn_find(v_text, hi_nonempty_idx, vtcol - 1, &begin, &end);
 
@@ -378,36 +399,15 @@ static int syn_other(struct text *v_text, int vtcol)
 		return FALSE;
 	}
 
-	if (hash_haskey(&htab_type, synbuf)) {
-		syn_fcolor(v_text, begin, end, typefg);
-		return TRUE;
-	}
-	if (hash_haskey(&htab_constant, synbuf)) {
-		syn_fcolor(v_text, begin, end, constantfg);
-		return TRUE;
-	}
-	if (hash_haskey(&htab_struct, synbuf)) {
-		syn_fcolor(v_text, begin, end, structfg);
-		return TRUE;
-	}
-	if (hash_haskey(&htab_storage, synbuf)) {
-		syn_fcolor(v_text, begin, end, storagefg);
-		return TRUE;
-	}
-	if (hash_haskey(&htab_state, synbuf)) {
-		syn_fcolor(v_text, begin, end, statefg);
-		return TRUE;
-	}
-	if (hash_haskey(&htab_label, synbuf)) {
-		syn_fcolor(v_text, begin, end, labelfg);
-		return TRUE;
-	}
-	if (hash_haskey(&htab_cond, synbuf)) {
-		syn_fcolor(v_text, begin, end, condfg);
-		return TRUE;
-	}
-	if (hash_haskey(&htab_repeat, synbuf)) {
-		syn_fcolor(v_text, begin, end, repeatfg);
+	/* hash table search */
+	idx = hash_findkey(&keywtab, synbuf);
+
+	if (idx >= 0) {
+		if (arr_color[idx].bcolor == CLR_NONE)
+			syn_fcolor(v_text, begin, end, arr_color[idx].fcolor);
+		else
+			syn_color(v_text, begin, end, arr_color[idx].fcolor,
+				arr_color[idx].bcolor);
 		return TRUE;
 	}
 	return FALSE;
@@ -455,7 +455,6 @@ static void syn_fcolor(struct text *v_text, int begin, int end,
 	int fcolor)
 {
 	int i;
-
 	for (i = begin; i <= end; i++)
 		v_text[i].t_fcolor = fcolor;
 }
@@ -464,27 +463,46 @@ static void syn_color(struct text *v_text, int begin, int end,
 	int fcolor, int bcolor)
 {
 	int i;
-
 	for (i = begin; i <= end; i++) {
 		v_text[i].t_fcolor = fcolor;
 		v_text[i].t_bcolor = bcolor;
 	}
 }
 
-static void hash_addarr(hashtab_T *ht, char **arr)
+static void hash_addarr(hashtab_T *ht, char **arr, short_u idx)
 {
 	int i;
+	hash_T hash;
+	hashitem_T *hi;
+	colorindex_T *ci;
+	char_u *p;
 
-	for (i = 0; arr[i] != NULL; i++)
-		hash_add(ht, (char_u *)arr[i]);
+	for (i = 0; arr[i] != NULL; i++) {
+		p = (char_u *)arr[i];
+		hash = hash_hash(p);
+		hi = hash_lookup(ht, p, hash);
+		if (HASHITEM_EMPTY(hi)) {
+			ci = (colorindex_T *)malloc((unsigned)(sizeof(colorindex_T) + STRLEN(p)));
+			if (ci == NULL)
+				return;
+			STRCPY(ci->ci_keyw, p);
+			ci->ci_index = idx;
+			hash_add_item(ht, hi, ci->ci_keyw, hash);
+		}
+	}
 }
 
-static int hash_haskey(hashtab_T *ht, char *key)
+static int hash_findkey(hashtab_T *ht, char *key)
 {
 	hashitem_T *hi;
+	colorindex_T *ci;
 
 	hi = hash_find(ht, (char_u *)key);
-	return !HASHITEM_EMPTY(hi);
+	if (!HASHITEM_EMPTY(hi)) {
+		ci = HI2CI(hi);
+		return ci->ci_index;
+	}
+	return -1;
 }
 
 static int is_separator(int c)
