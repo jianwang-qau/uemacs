@@ -116,6 +116,30 @@ void syntax_c_line_init()
 	hi_nonempty_idx = -1;
 }
 
+static int syntax_c_common(struct text *v_text, int vtcol)
+{
+	int ret = FALSE;
+	int c = v_text[vtcol].t_char;
+
+	if (c == '/' && vtcol > 0 && v_text[vtcol - 1].t_char == '/') {
+		v_text[vtcol].t_fcolor = commentfg;
+		v_text[vtcol - 1].t_fcolor = commentfg;
+		hi_scomment = TRUE;
+		ret = TRUE;
+	} else if (c == '*' && vtcol > 0 && v_text[vtcol - 1].t_char == '/') {
+		v_text[vtcol].t_fcolor = commentfg;
+		v_text[vtcol - 1].t_fcolor = commentfg;
+		hi_mcomment_idx = vtcol;
+		hi_mcomment = TRUE;
+		ret = TRUE;
+	} else if (is_separator(c)) {
+		if (hi_nonempty_idx >= 0)
+			ret = syn_other(v_text, vtcol);
+		hi_nonempty_idx = -1;
+	}
+	return ret;
+}
+
 /* syntax highlight handle for c */
 void syntax_c_handle(struct text *v_text, int vtcol)
 {
@@ -139,17 +163,14 @@ void syntax_c_handle(struct text *v_text, int vtcol)
 			syn_color(v_text, vtcol - 1, vtcol - 1, errorfg, errorbg);
 		}
 	} else if (hi_macro == TRUE) {
-		ret = FALSE;
-		if (is_separator(c)) {
-			if (hi_nonempty_idx >= 0)
-				ret = syn_other(v_text, vtcol);
-			hi_nonempty_idx = -1;
-		}
+		ret = syntax_c_common(v_text, vtcol);
 		if (ret == FALSE)
 			v_text[vtcol].t_fcolor = macrofg;
-	} else if (hi_preproc_if == TRUE)
-		v_text[vtcol].t_fcolor = preprocfg;
-	else if (c == '"') {
+	} else if (hi_preproc_if == TRUE) {
+		ret = syntax_c_common(v_text, vtcol);
+		if (ret == FALSE)
+			v_text[vtcol].t_fcolor = preprocfg;
+	} else if (c == '"') {
 		if (hi_sstring == FALSE) {
 			if (hi_pound_idx >= 0)
 				syn_include(v_text, vtcol);
@@ -249,6 +270,7 @@ static void syn_preproc(struct text *v_text, int vtcol)
 	} else if (arr_find(arr_preproc_if, synbuf) == TRUE) {
 		fcolor = preprocfg;
 		hi_preproc_if = TRUE;
+		hi_nonempty_idx = -1;
 	} else if (arr_find(arr_preproc_else, synbuf) == TRUE)
 		fcolor = preprocfg;
 
