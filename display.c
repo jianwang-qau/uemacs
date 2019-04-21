@@ -541,12 +541,13 @@ static void updone(struct window *wp)
 		lp = lforw(lp);
 	}
 
-#if COLOR
-	endrow = wp->w_toprow + wp->w_ntrows;
-	state = mcomment_state(wp->w_bufp->b_linep, lp);
-	syntax_mcomment_init(state);
-#else
 	endrow = sline + 1;
+#if COLOR
+	if ((curbp->b_mode & MDCMOD) != 0) {
+		endrow = wp->w_toprow + wp->w_ntrows;
+		state = mcomment_state(wp->w_bufp->b_linep, lp);
+		syntax_mcomment_init(state);
+	}
 #endif
 	while (sline < endrow) {
 
@@ -583,8 +584,10 @@ static void updall(struct window *wp)
 #endif
 
 #if COLOR
-	state = mcomment_state(wp->w_bufp->b_linep, wp->w_linep);
-	syntax_mcomment_init(state);
+	if ((curbp->b_mode & MDCMOD) != 0) {
+		state = mcomment_state(wp->w_bufp->b_linep, wp->w_linep);
+		syntax_mcomment_init(state);
+	}
 #endif
 	/* search down the lines, updating them */
 	lp = wp->w_linep;
