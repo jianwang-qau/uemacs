@@ -16,6 +16,9 @@ struct line {
 	struct line *l_bp;	/* Link to the previous line    */
 	int l_size;		/* Allocated size               */
 	int l_used;		/* Used size                    */
+#if COLOR
+	int l_mcomment;		/* Multi-line comment state     */
+#endif
 	char l_text[1];		/* A bunch of characters.       */
 };
 

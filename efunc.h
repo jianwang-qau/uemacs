@@ -138,6 +138,7 @@ extern void mlforce(char *s);
 extern void mlputs(char *s);
 extern void getscreensize(int *widthp, int *heightp);
 extern void sizesignal(int signr);
+extern int mcomment_line_state(struct line *lp, int state);
 
 /* syntax.c */
 extern void syninit(void);

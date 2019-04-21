@@ -13,14 +13,13 @@
  *
  */
 
-#include "line.h"
-
 #include <stdio.h>
 
 #include "estruct.h"
 #include "edef.h"
 #include "efunc.h"
 #include "utf8.h"
+#include "line.h"
 
 #define	BLOCK_SIZE 16 /* Line block chunk size. */
 
@@ -336,6 +335,12 @@ int lnewline(void)
 	lp1->l_bp = lp2;
 	lp2->l_bp->l_fp = lp2;
 	lp2->l_fp = lp1;
+#if COLOR
+	if ((curbp->b_mode & MDCMOD) != 0) {
+		lp2->l_mcomment = lp1->l_mcomment;
+		lp1->l_mcomment = mcomment_line_state(lp2, lp2->l_mcomment);
+	}
+#endif
 	wp = wheadp;		/* Windows              */
 	while (wp != NULL) {
 		if (wp->w_linep == lp1)

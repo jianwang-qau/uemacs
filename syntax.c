@@ -305,6 +305,8 @@ void syntax_c_handle(struct text *v_text, int vtcol)
 /* syntax highlight line end for c */
 void syntax_c_line_end(struct text *v_text, int vtcol)
 {
+	if (hi_mcomment == TRUE)
+		return;
 	if (hi_pound_idx >= 0 && hi_preproc == FALSE)
 		syn_preproc(v_text, vtcol);
 	else if (hi_nonempty_idx >= 0)

@@ -223,6 +223,7 @@ int readin(char *fname, int lockfl)
 	int s;
 	int nbytes;
 	int nline;
+	int nstate;
 	char mesg[NSTRING];
 
 #if	(FILOCK && BSD) || SVR4
@@ -263,6 +264,7 @@ int readin(char *fname, int lockfl)
 	/* read the file in */
 	mlwrite("(Reading file)");
 	nline = 0;
+	nstate = FALSE;
 	while ((s = ffgetline(&nbytes)) == FIOSUC) {
 		if ((lp1 = lalloc(nbytes)) == NULL) {
 			s = FIOMEM;	/* Keep message on the  */
@@ -281,6 +283,12 @@ int readin(char *fname, int lockfl)
 		curbp->b_linep->l_bp = lp1;
 		for (i = 0; i < nbytes; ++i)
 			lputc(lp1, i, fline[i]);
+#if	COLOR
+		if ((curbp->b_mode & MDCMOD) != 0) {
+			lp1->l_mcomment = nstate;
+			nstate = mcomment_line_state(lp1, nstate);
+		}
+#endif
 		++nline;
 	}
 	ffclose();		/* Ignore errors.       */

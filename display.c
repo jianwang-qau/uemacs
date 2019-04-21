@@ -30,7 +30,6 @@ struct video {
 #if	COLOR
 	int v_rfcolor;		/* requested forground color */
 	int v_rbcolor;		/* requested background color */
-	int v_mcomment;		/* multi-line comment state */
 #endif
 	struct text v_text[1];	/* Screen data. */
 };
@@ -77,7 +76,7 @@ static void mlputf(int s);
 static int newscreensize(int h, int w);
 
 #if COLOR
-static int mcomment_state(struct line *startp, struct line *endp, int state);
+static void mcomment_update_state(struct line *startp, struct line *endp, int state);
 #endif
 
 #if RAINBOW
@@ -543,14 +542,14 @@ static void updone(struct window *wp)
 	endrow = sline + 1;
 #if COLOR
 	if ((curbp->b_mode & MDCMOD) != 0) {
-		hi_mcomment = vscreen[sline]->v_mcomment;
+		hi_mcomment = lp->l_mcomment;
 		endrow = wp->w_toprow + wp->w_ntrows;
 	}
 #endif
 	while (sline < endrow) {
 #if	COLOR
 		if ((curbp->b_mode & MDCMOD) != 0)
-			vscreen[sline]->v_mcomment = hi_mcomment;
+			lp->l_mcomment = hi_mcomment;
 #endif
 		/* and update the virtual line */
 		vscreen[sline]->v_flag |= VFCHG;
@@ -567,13 +566,18 @@ static void updone(struct window *wp)
 #endif
 		vteeol();
 		++sline;
-#if COLOR
+#if	COLOR
 		if ((curbp->b_mode & MDCMOD) != 0 && sline < endrow) {
-			if (vscreen[sline]->v_mcomment == hi_mcomment)
+			if (lp->l_mcomment == hi_mcomment)
 				break;
 		}
 #endif
 	}
+
+#if	COLOR
+	if ((curbp->b_mode & MDCMOD) != 0 && sline == endrow)
+		mcomment_update_state(lp, wp->w_bufp->b_linep, hi_mcomment);
+#endif
 }
 
 /*
@@ -587,18 +591,15 @@ static void updall(struct window *wp)
 	struct line *lp;	/* line to update */
 	int sline;	/* physical screen line to update */
 
-#if COLOR
-	if ((curbp->b_mode & MDCMOD) != 0)
-		hi_mcomment = mcomment_state(wp->w_bufp->b_linep, wp->w_linep, FALSE);
-#endif
 	/* search down the lines, updating them */
 	lp = wp->w_linep;
 	sline = wp->w_toprow;
-	while (sline < wp->w_toprow + wp->w_ntrows) {
 #if	COLOR
-		if ((curbp->b_mode & MDCMOD) != 0)
-			vscreen[sline]->v_mcomment = hi_mcomment;
+	if ((curbp->b_mode & MDCMOD) != 0)
+		hi_mcomment = lp->l_mcomment;
 #endif
+	while (sline < wp->w_toprow + wp->w_ntrows) {
+
 		/* and update the virtual line */
 		vscreen[sline]->v_flag |= VFCHG;
 		vscreen[sline]->v_flag &= ~VFREQ;
@@ -617,7 +618,6 @@ static void updall(struct window *wp)
 		vteeol();
 		++sline;
 	}
-
 }
 
 /*
@@ -1715,27 +1715,35 @@ static int newscreensize(int h, int w)
 }
 
 #if COLOR
-static int mcomment_state(struct line *startp, struct line *endp, int state)
+int mcomment_line_state(struct line *lp, int state)
 {
 	int i;
-	struct line *lp;
 
-	lp = startp;
-	while (lp != endp) {
-		for (i = 1; i < lp->l_used; i++) {
-			if (state == FALSE &&
-				lp->l_text[i - 1] == '/' && lp->l_text[i] == '*') {
-				state = TRUE;
-				i++;
-			} else if (state == TRUE &&
-				lp->l_text[i - 1] == '*' && lp->l_text[i] == '/') {
-				state = FALSE;
-				i++;
-			}
+	for (i = 1; i < lp->l_used; i++) {
+		if (state == FALSE &&
+			lp->l_text[i - 1] == '/' && lp->l_text[i] == '*') {
+			state = TRUE;
+			i++;
+		} else if (state == TRUE &&
+			lp->l_text[i - 1] == '*' && lp->l_text[i] == '/') {
+			state = FALSE;
+			i++;
 		}
-		lp = lforw(lp);
 	}
 	return state;
+}
+
+static void mcomment_update_state(struct line *startp, struct line *endp, int state)
+{
+	struct line *lp = startp;
+
+	while (lp != endp) {
+		if (lp->l_mcomment == state)
+			break;
+		lp->l_mcomment = state;
+		state = mcomment_line_state(lp, state);
+		lp = lforw(lp);
+	}
 }
 #endif
 
