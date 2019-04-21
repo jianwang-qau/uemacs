@@ -57,6 +57,7 @@ int chg_width, chg_height;
 
 #if COLOR
 static int hi_enable;
+static int hi_mcomment_top;
 #endif
 
 static int reframe(struct window *wp);
@@ -75,7 +76,7 @@ static void mlputf(int s);
 static int newscreensize(int h, int w);
 
 #if COLOR
-static int mcomment_state(struct line *startp, struct line *endp);
+static int mcomment_state(struct line *startp, struct line *endp, int state);
 #endif
 
 #if RAINBOW
@@ -545,7 +546,7 @@ static void updone(struct window *wp)
 #if COLOR
 	if ((curbp->b_mode & MDCMOD) != 0) {
 		endrow = wp->w_toprow + wp->w_ntrows;
-		state = mcomment_state(wp->w_bufp->b_linep, lp);
+		state = mcomment_state(wp->w_linep, lp, hi_mcomment_top);
 		syntax_mcomment_init(state);
 	}
 #endif
@@ -585,8 +586,9 @@ static void updall(struct window *wp)
 
 #if COLOR
 	if ((curbp->b_mode & MDCMOD) != 0) {
-		state = mcomment_state(wp->w_bufp->b_linep, wp->w_linep);
+		state = mcomment_state(wp->w_bufp->b_linep, wp->w_linep, FALSE);
 		syntax_mcomment_init(state);
+		hi_mcomment_top = state;
 	}
 #endif
 	/* search down the lines, updating them */
@@ -1710,9 +1712,9 @@ static int newscreensize(int h, int w)
 }
 
 #if COLOR
-static int mcomment_state(struct line *startp, struct line *endp)
+static int mcomment_state(struct line *startp, struct line *endp, int state)
 {
-	int i, state = FALSE;
+	int i;
 	struct line *lp;
 
 	lp = startp;
