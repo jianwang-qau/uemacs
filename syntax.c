@@ -104,9 +104,9 @@ static char *arr_repeat[] = {"while", "for", "do", NULL};
 static hashtab_T keywtab;
 
 /* syntax highlight flag */
+int hi_mcomment;		/* multi line comment */
 static int hi_sstring;		/* single line string */
 static int hi_scomment;		/* single line comment */
-static int hi_mcomment;		/* multi line comment */
 static int hi_include;		/* #include */
 static int hi_macro;		/* macro */
 static int hi_preproc_if;	/* #if */
@@ -168,12 +168,6 @@ void syntax_specialkey(struct text *v_text, int start, int len)
 	int i;
 	for (i = 0; i < len; i++)
 		v_text[start + i].t_fcolor = speckeyfg;
-}
-
-/* syntax highlight mcomment init */
-void syntax_mcomment_init(int state)
-{
-	hi_mcomment = state;
 }
 
 /* syntax highlight line init for c */

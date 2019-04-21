@@ -30,6 +30,7 @@ struct video {
 #if	COLOR
 	int v_rfcolor;		/* requested forground color */
 	int v_rbcolor;		/* requested background color */
+	int v_mcomment;		/* multi-line comment state */
 #endif
 	struct text v_text[1];	/* Screen data. */
 };
@@ -57,7 +58,7 @@ int chg_width, chg_height;
 
 #if COLOR
 static int hi_enable;
-static int hi_mcomment_top;
+extern int hi_mcomment;
 #endif
 
 static int reframe(struct window *wp);
@@ -530,9 +531,6 @@ static void updone(struct window *wp)
 	struct line *lp;	/* line to update */
 	int sline;	/* physical screen line to update */
 	int endrow;	/* end row to update */
-#if COLOR
-	int state;	/* multi line comment state */
-#endif
 
 	/* search down the line we want */
 	lp = wp->w_linep;
@@ -545,13 +543,15 @@ static void updone(struct window *wp)
 	endrow = sline + 1;
 #if COLOR
 	if ((curbp->b_mode & MDCMOD) != 0) {
+		hi_mcomment = vscreen[sline]->v_mcomment;
 		endrow = wp->w_toprow + wp->w_ntrows;
-		state = mcomment_state(wp->w_linep, lp, hi_mcomment_top);
-		syntax_mcomment_init(state);
 	}
 #endif
 	while (sline < endrow) {
-
+#if	COLOR
+		if ((curbp->b_mode & MDCMOD) != 0)
+			vscreen[sline]->v_mcomment = hi_mcomment;
+#endif
 		/* and update the virtual line */
 		vscreen[sline]->v_flag |= VFCHG;
 		vscreen[sline]->v_flag &= ~VFREQ;
@@ -567,6 +567,12 @@ static void updone(struct window *wp)
 #endif
 		vteeol();
 		++sline;
+#if COLOR
+		if ((curbp->b_mode & MDCMOD) != 0 && sline < endrow) {
+			if (vscreen[sline]->v_mcomment == hi_mcomment)
+				break;
+		}
+#endif
 	}
 }
 
@@ -580,22 +586,19 @@ static void updall(struct window *wp)
 {
 	struct line *lp;	/* line to update */
 	int sline;	/* physical screen line to update */
-#if COLOR
-	int state;	/* multi line comment state */
-#endif
 
 #if COLOR
-	if ((curbp->b_mode & MDCMOD) != 0) {
-		state = mcomment_state(wp->w_bufp->b_linep, wp->w_linep, FALSE);
-		syntax_mcomment_init(state);
-		hi_mcomment_top = state;
-	}
+	if ((curbp->b_mode & MDCMOD) != 0)
+		hi_mcomment = mcomment_state(wp->w_bufp->b_linep, wp->w_linep, FALSE);
 #endif
 	/* search down the lines, updating them */
 	lp = wp->w_linep;
 	sline = wp->w_toprow;
 	while (sline < wp->w_toprow + wp->w_ntrows) {
-
+#if	COLOR
+		if ((curbp->b_mode & MDCMOD) != 0)
+			vscreen[sline]->v_mcomment = hi_mcomment;
+#endif
 		/* and update the virtual line */
 		vscreen[sline]->v_flag |= VFCHG;
 		vscreen[sline]->v_flag &= ~VFREQ;
