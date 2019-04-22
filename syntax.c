@@ -117,6 +117,7 @@ static int hi_pound_idx;	/* # index */
 static int hi_less_idx;		/* #include < index */
 static int hi_nonempty_idx;	/* nonempty char index */
 static int hi_bslash_idx;	/* backslash index */
+static int hi_percent_idx;	/* percent index */
 
 static void syn_include(struct text *v_text, int vtcol);
 static void syn_preproc(struct text *v_text, int vtcol);
@@ -135,6 +136,8 @@ static void hash_addarr(hashtab_T *ht, char **arr, short_u idx);
 static int hash_findkey(hashtab_T *ht, char *key);
 static int is_separator(int c);
 static int is_escape(int c);
+static int is_format_tail(int c);
+static int is_format_middle(struct text *v_text, int begin, int end);
 
 /*
  * Initialize the data structures used by the syntax code
@@ -187,6 +190,7 @@ void syntax_c_line_init()
 	hi_less_idx = -1;
 	hi_nonempty_idx = -1;
 	hi_bslash_idx = -1;
+	hi_percent_idx = -1;
 }
 
 static int syntax_c_common(struct text *v_text, int vtcol)
@@ -269,9 +273,19 @@ void syntax_c_handle(struct text *v_text, int vtcol)
 					hi_bslash_idx = vtcol - 1;
 			} else if (hi_bslash_idx > 0 && is_digit(c)) {
 				v_text[vtcol].t_fcolor = speccharfg;
+			} else if (hi_percent_idx >= 0 && is_format_tail(c)) {
+				if (is_format_middle(v_text, hi_percent_idx + 1, vtcol - 1)) {
+					syn_fcolor(v_text, hi_percent_idx, vtcol, speccharfg);
+					hi_percent_idx = -1;
+				} else {
+					v_text[vtcol].t_fcolor = stringfg;
+					hi_bslash_idx = -1;
+				}
 			} else {
 				v_text[vtcol].t_fcolor = stringfg;
 				hi_bslash_idx = -1;
+				if (c == '%')
+					hi_percent_idx = vtcol;
 			}
 		} else
 			v_text[vtcol].t_fcolor = stringfg;
@@ -534,6 +548,53 @@ static int is_escape(int c)
 {
 	static char *str = "\\abefnrtv";
 	return is_char_in(c, str);
+}
+
+static int is_format_tail(int c)
+{
+	static char *str = "bdiuoxXDOUfeEgGcCsSpn";
+	return is_char_in(c, str);
+}
+
+static int is_format_head(int c)
+{
+	static char *str = "-+' #0*";
+	return is_char_in(c, str);
+}
+
+static int is_format_middle(struct text *v_text, int begin, int end)
+{
+	int i, j, k;
+	int c;
+
+	if (begin > end)
+		return TRUE;
+
+	syn_trim(v_text, begin, end, &j, &k);
+
+	for (i = j; i <= k; i++) {
+		c = v_text[i].t_char;
+		if (!is_format_head(c))
+			break;
+	}
+
+	for (; i <= k; i++) {
+		c = v_text[i].t_char;
+		if (!is_digit(c) && c != '.')
+			break;
+	}
+
+	if (i > k)
+		return TRUE;
+
+	c = v_text[i].t_char;
+
+	if (i == k && (c == 'h' || c == 'l' || c == 'L'))
+		return TRUE;
+	else if (i + 1 == k && c == 'l' &&
+		v_text[i + 1].t_char == 'l')
+		return TRUE;
+	return FALSE;
 }
 
 #endif /* COLOR */
