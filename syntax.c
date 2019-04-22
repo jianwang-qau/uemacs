@@ -116,6 +116,7 @@ static int hi_mcomment_idx;	/* multi line comment index */
 static int hi_pound_idx;	/* # index */
 static int hi_less_idx;		/* #include < index */
 static int hi_nonempty_idx;	/* nonempty char index */
+static int hi_bslash_idx;	/* backslash index */
 
 static void syn_include(struct text *v_text, int vtcol);
 static void syn_preproc(struct text *v_text, int vtcol);
@@ -133,6 +134,7 @@ static void syn_color(struct text *v_text, int begin, int end,
 static void hash_addarr(hashtab_T *ht, char **arr, short_u idx);
 static int hash_findkey(hashtab_T *ht, char *key);
 static int is_separator(int c);
+static int is_escape(int c);
 
 /*
  * Initialize the data structures used by the syntax code
@@ -184,6 +186,7 @@ void syntax_c_line_init()
 	hi_pound_idx = -1;
 	hi_less_idx = -1;
 	hi_nonempty_idx = -1;
+	hi_bslash_idx = -1;
 }
 
 static int syntax_c_common(struct text *v_text, int vtcol)
@@ -257,12 +260,19 @@ void syntax_c_handle(struct text *v_text, int vtcol)
 			}
 		}
 	} else if (hi_sstring == TRUE) {
-		if (hi_include == FALSE &&
-			v_text[vtcol - 1].t_char == '\\' &&
-			( c == '\\' || c == 'a' || c == 'b' || c == 'e'
-			|| c == 'n' || c == 'r' || c == 't' || c == 'v')) {
-			v_text[vtcol].t_fcolor = speccharfg;
-			v_text[vtcol - 1].t_fcolor = speccharfg;
+		if (hi_include == FALSE) {
+			if (v_text[vtcol - 1].t_char == '\\' &&
+				(is_escape(c) || is_digit(c))) {
+				v_text[vtcol].t_fcolor = speccharfg;
+				v_text[vtcol - 1].t_fcolor = speccharfg;
+				if (is_digit(c))
+					hi_bslash_idx = vtcol - 1;
+			} else if (hi_bslash_idx > 0 && is_digit(c)) {
+				v_text[vtcol].t_fcolor = speccharfg;
+			} else {
+				v_text[vtcol].t_fcolor = stringfg;
+				hi_bslash_idx = -1;
+			}
 		} else
 			v_text[vtcol].t_fcolor = stringfg;
 	} else if (c == '#' && hi_pound_idx < 0) {
@@ -501,10 +511,9 @@ static int hash_findkey(hashtab_T *ht, char *key)
 	return -1;
 }
 
-static int is_separator(int c)
+static int is_char_in(int c, char *str)
 {
 	int i;
-	static char *str = " (){}[];,>=<+-*/%&|";
 
 	if (c > 0x7f)
 		return FALSE;
@@ -513,6 +522,18 @@ static int is_separator(int c)
 			return TRUE;
 	}
 	return FALSE;
+}
+
+static int is_separator(int c)
+{
+	static char *str = " (){}[];,>=<+-*/%&|";
+	return is_char_in(c, str);
+}
+
+static int is_escape(int c)
+{
+	static char *str = "\\abefnrtv";
+	return is_char_in(c, str);
 }
 
 #endif /* COLOR */
