@@ -101,6 +101,7 @@ static char *arr_cond[] = {"if", "else", "switch", NULL};
 static char *arr_repeat[] = {"while", "for", "do", NULL};
 
 /* syntax keyword hashtable */
+static hashtab_T poundtab;
 static hashtab_T keywtab;
 
 /* syntax highlight flag */
@@ -144,11 +145,12 @@ static int is_format_middle(struct text *v_text, int begin, int end);
  */
 void syninit(void)
 {
-	hash_init(&keywtab);
+	hash_init(&poundtab);
+	hash_addarr(&poundtab, arr_macro, IDX_MACRO);
+	hash_addarr(&poundtab, arr_preproc_if, IDX_PREPROC_IF);
+	hash_addarr(&poundtab, arr_preproc_else, IDX_PREPROC_ELSE);
 
-	hash_addarr(&keywtab, arr_macro, IDX_MACRO);
-	hash_addarr(&keywtab, arr_preproc_if, IDX_PREPROC_IF);
-	hash_addarr(&keywtab, arr_preproc_else, IDX_PREPROC_ELSE);
+	hash_init(&keywtab);
 	hash_addarr(&keywtab, arr_type, IDX_TYPE);
 	hash_addarr(&keywtab, arr_constant, IDX_CONSTANT);
 	hash_addarr(&keywtab, arr_struct, IDX_STRUCT);
@@ -164,6 +166,7 @@ void syninit(void)
  */
 void synfree(void)
 {
+	hash_clear_all(&poundtab, CI_KEY_OFF);
 	hash_clear_all(&keywtab, CI_KEY_OFF);
 }
 
@@ -362,7 +365,7 @@ static void syn_preproc(struct text *v_text, int vtcol)
 	syn_find(v_text, hi_pound_idx + 1, vtcol - 1, &begin, &end);
 
 	/* hash table search */
-	idx = hash_findkey(&keywtab, synbuf);
+	idx = hash_findkey(&poundtab, synbuf);
 
 	if (idx < 0)
 		return;
