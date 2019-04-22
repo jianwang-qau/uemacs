@@ -190,6 +190,10 @@ static int linsert_byte(int n, int c)
 		lp2->l_bp = lp3;
 		for (i = 0; i < n; ++i)
 			lp2->l_text[i] = c;
+#if	COLOR
+		if ((curbp->b_mode & MDCMOD) != 0)
+			lp2->l_mcomment = mcomment_line_state(lp3, lp3->l_mcomment);
+#endif
 		curwp->w_dotp = lp2;
 		curwp->w_doto = n;
 		return TRUE;
@@ -209,6 +213,10 @@ static int linsert_byte(int n, int c)
 		lp2->l_fp = lp1->l_fp;
 		lp1->l_fp->l_bp = lp2;
 		lp2->l_bp = lp1->l_bp;
+#if	COLOR
+		if ((curbp->b_mode & MDCMOD) != 0)
+			lp2->l_mcomment = lp1->l_mcomment;
+#endif
 		free((char *) lp1);
 	} else {		/* Easy: in place       */
 		lp2 = lp1;	/* Pretend new line     */
@@ -526,6 +534,9 @@ int ldelnewline(void)
 	struct line *lp2;
 	struct line *lp3;
 	struct window *wp;
+#if	COLOR
+	int nstate;
+#endif
 
 	if (curbp->b_mode & MDVIEW)	/* don't allow this command if      */
 		return rdonly();	/* we are in read only mode     */
@@ -558,6 +569,19 @@ int ldelnewline(void)
 		lp1->l_used += lp2->l_used;
 		lp1->l_fp = lp2->l_fp;
 		lp2->l_fp->l_bp = lp1;
+#if	COLOR
+		if ((curbp->b_mode & MDCMOD) != 0) {
+			nstate = mcomment_line_state(lp1, lp1->l_mcomment);
+			lp1 = lforw(lp1);
+			while (lp1 != curwp->w_bufp->b_linep) {
+				if (lp1->l_mcomment == nstate)
+					break;
+				lp1->l_mcomment = nstate;
+				nstate = mcomment_line_state(lp1, nstate);
+				lp1 = lforw(lp1);
+			}
+		}
+#endif
 		free((char *) lp2);
 		return TRUE;
 	}
@@ -592,6 +616,20 @@ int ldelnewline(void)
 		}
 		wp = wp->w_wndp;
 	}
+#if	COLOR
+	if ((curbp->b_mode & MDCMOD) != 0) {
+		lp3->l_mcomment = lp1->l_mcomment;
+		nstate = mcomment_line_state(lp3, lp3->l_mcomment);
+		lp3 = lforw(lp3);
+		while (lp3 != curwp->w_bufp->b_linep) {
+			if (lp3->l_mcomment == nstate)
+				break;
+			lp3->l_mcomment = nstate;
+			nstate = mcomment_line_state(lp3, nstate);
+			lp3 = lforw(lp3);
+		}
+	}
+#endif
 	free((char *) lp1);
 	free((char *) lp2);
 	return TRUE;

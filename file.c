@@ -223,7 +223,9 @@ int readin(char *fname, int lockfl)
 	int s;
 	int nbytes;
 	int nline;
+#if	COLOR
 	int nstate;
+#endif
 	char mesg[NSTRING];
 
 #if	(FILOCK && BSD) || SVR4
@@ -264,7 +266,9 @@ int readin(char *fname, int lockfl)
 	/* read the file in */
 	mlwrite("(Reading file)");
 	nline = 0;
+#if	COLOR
 	nstate = FALSE;
+#endif
 	while ((s = ffgetline(&nbytes)) == FIOSUC) {
 		if ((lp1 = lalloc(nbytes)) == NULL) {
 			s = FIOMEM;	/* Keep message on the  */
@@ -556,6 +560,9 @@ int ifile(char *fname)
 	int s;
 	int nbytes;
 	int nline;
+#if	COLOR
+	int nstate;
+#endif
 	char mesg[NSTRING];
 
 	bp = curbp;		/* Cheap.               */
@@ -581,6 +588,13 @@ int ifile(char *fname)
 	curwp->w_marko = 0;
 
 	nline = 0;
+#if	COLOR
+	nstate = FALSE;
+	if ((curbp->b_mode & MDCMOD) != 0) {
+		nstate = curwp->w_dotp->l_mcomment;
+		nstate = mcomment_line_state(curwp->w_dotp, nstate);
+	}
+#endif
 	while ((s = ffgetline(&nbytes)) == FIOSUC) {
 		if ((lp1 = lalloc(nbytes)) == NULL) {
 			s = FIOMEM;	/* Keep message on the  */
@@ -599,6 +613,12 @@ int ifile(char *fname)
 		curwp->w_dotp = lp1;
 		for (i = 0; i < nbytes; ++i)
 			lputc(lp1, i, fline[i]);
+#if	COLOR
+		if ((curbp->b_mode & MDCMOD) != 0) {
+			lp1->l_mcomment = nstate;
+			nstate = mcomment_line_state(lp1, nstate);
+		}
+#endif
 		++nline;
 	}
 	ffclose();		/* Ignore errors.       */
@@ -612,6 +632,18 @@ int ifile(char *fname)
 		strcat(mesg, "OUT OF MEMORY, ");
 		curbp->b_flag |= BFTRUNC;
 	}
+#if	COLOR
+	if ((curbp->b_mode & MDCMOD) != 0) {
+		lp1 = lforw(curwp->w_dotp);
+		while (lp1 != curwp->w_bufp->b_linep) {
+			if (lp1->l_mcomment == nstate)
+				break;
+			lp1->l_mcomment = nstate;
+			nstate = mcomment_line_state(lp1, nstate);
+			lp1 = lforw(lp1);
+		}
+	}
+#endif
 	sprintf(&mesg[strlen(mesg)], "Inserted %d line", nline);
 	if (nline > 1)
 		strcat(mesg, "s");
