@@ -84,17 +84,31 @@ static char *arr_preproc_else[] = {"else", "endif", NULL};
 static char *arr_type[] = {
 	"int", "long", "short", "char", "void",
 	"signed", "unsigned", "float", "double",
+	/* gnu */
+	"__label__", "__complex__", "__volatile__",
 	NULL
 };
 static char *arr_constant[] = {
-	"EOF", "NULL", "stderr", "stdin", "stdout", NULL
+	"NULL", "EOF", "SEEK_CUR", "SEEK_END", "SEEK_SET",
+	"stderr", "stdin", "stdout",
+	"__LINE__", "__FILE__", "__DATE__", "__TIME__",
+	"__STDC__", "__STDC_VERSION__",
+	/* gnu */
+	"__GNUC__", "__FUNCTION__", "__PRETTY_FUNCTION__", "__func__",
+	NULL
 };
 static char *arr_struct[] = {"struct", "union" , "enum", "typedef", NULL};
 static char *arr_storage[] = {
-	"static", "register", "auto", "volatile", "extern", "const", NULL
+	"static", "register", "auto", "volatile", "extern", "const",
+	/* gnu */
+	"inline", "__attribute__",
+	NULL
 };
 static char *arr_state[] = {
-	"goto", "break", "return", "continue", "asm", NULL
+	"goto", "break", "return", "continue", "asm",
+	/* gnu */
+	"__asm__",
+	NULL
 };
 static char *arr_label[] = {"case", "default", NULL};
 static char *arr_cond[] = {"if", "else", "switch", NULL};
