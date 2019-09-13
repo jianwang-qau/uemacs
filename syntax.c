@@ -25,6 +25,7 @@
 #define IDX_LABEL		8
 #define IDX_COND		9
 #define IDX_REPEAT		10
+#define IDX_OPERATOR		11
 
 #define SYNLEN	20
 static char synbuf[SYNLEN + 1];
@@ -75,7 +76,8 @@ static color_T arr_color[] = {
 	{0xFCE94F, CLR_NONE},	/* state fg and bg color */
 	{0xFCE94F, CLR_NONE},	/* label fg and bg color */
 	{0xFCE94F, CLR_NONE},	/* cond fg and bg color */
-	{0xFCE94F, CLR_NONE}	/* repeat fg and bg color */
+	{0xFCE94F, CLR_NONE},	/* repeat fg and bg color */
+	{0xFCE94F, CLR_NONE}	/* operator fg and bg color */
 };
 
 static char *arr_macro[] = {"define", "undef", NULL};
@@ -113,6 +115,12 @@ static char *arr_state[] = {
 static char *arr_label[] = {"case", "default", NULL};
 static char *arr_cond[] = {"if", "else", "switch", NULL};
 static char *arr_repeat[] = {"while", "for", "do", NULL};
+static char *arr_operator[] = {
+	"sizeof",
+	/* gnu */
+	"typeof", "__real__", "__imag__",
+	NULL
+};
 
 /* syntax keyword hashtable */
 static hashtab_T poundtab;
@@ -173,6 +181,7 @@ void syninit(void)
 	hash_addarr(&keywtab, arr_label, IDX_LABEL);
 	hash_addarr(&keywtab, arr_cond, IDX_COND);
 	hash_addarr(&keywtab, arr_repeat, IDX_REPEAT);
+	hash_addarr(&keywtab, arr_operator, IDX_OPERATOR);
 }
 
 /*
@@ -363,7 +372,7 @@ static void syn_include(struct text *v_text, int vtcol)
 
 	if (strcmp("include", synbuf) == 0) {
 		v_text[hi_pound_idx].t_fcolor = preprocfg;
-		syn_fcolor(v_text, begin, end, preprocfg);
+		syn_fcolor(v_text, begin, vtcol - 1, preprocfg);
 		hi_include = TRUE;
 		hi_preproc = TRUE;
 	}
@@ -391,6 +400,7 @@ static void syn_preproc(struct text *v_text, int vtcol)
 		fcolor = arr_color[idx].fcolor;
 		hi_preproc_if = TRUE;
 		hi_nonempty_idx = -1;
+		end = vtcol;
 	} else if (idx == IDX_PREPROC_ELSE)
 		fcolor = arr_color[idx].fcolor;
 
