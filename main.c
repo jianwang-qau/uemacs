@@ -154,8 +154,10 @@ int main(int argc, char **argv)
 	edinit("main");		/* Buffers, windows */
 	varinit();		/* user variables */
 
+#if	COLOR
 	/* Initialize syntax */
 	syninit();
+#endif
 
 	viewflag = FALSE;	/* view mode defaults off in command line */
 	gotoflag = FALSE;	/* set to off to begin with */
@@ -457,11 +459,6 @@ void edinit(char *bname)
 	wp->w_markp = NULL;
 	wp->w_marko = 0;
 	wp->w_toprow = 0;
-#if	COLOR
-	/* initalize colors to global defaults */
-	wp->w_fcolor = gfcolor;
-	wp->w_bcolor = gbcolor;
-#endif
 	wp->w_ntrows = term.t_nrow - 1;	/* "-1" for mode line.  */
 	wp->w_force = 0;
 	wp->w_flag = WFMODE | WFHARD;	/* Full.                */
@@ -799,10 +796,6 @@ dspram()
 	char *sp;
 
 	TTmove(term.t_nrow - 1, 70);
-#if	COLOR
-	TTforg(gfcolor);
-	TTbacg(gbcolor);
-#endif
 	sprintf(mbuf, "[%lu]", envram);
 	sp = &mbuf[0];
 	while (*sp)

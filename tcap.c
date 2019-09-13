@@ -52,6 +52,8 @@ static void tcapclose(void);
 #if COLOR
 static void tcapfcol(int rgb);
 static void tcapbcol(int rgb);
+static void tcap_reset_fcol(void);
+static void tcap_reset_bcol(void);
 #endif
 #if SCROLLCODE
 static void tcapscroll_reg(int from, int to, int linestoscroll);
@@ -105,7 +107,9 @@ struct terminal term = {
 	tcapcres
 #if	COLOR
 	    , tcapfcol,
-	tcapbcol
+	tcapbcol,
+	tcap_reset_fcol,
+	tcap_reset_bcol
 #endif
 #if     SCROLLCODE
 	    , NULL		/* set dynamically at open time */
@@ -359,6 +363,16 @@ static void tcapfcol(int rgb)
 static void tcapbcol(int rgb)
 {
 	term_rgb_color(T_8B, rgb);
+}
+
+static void tcap_reset_fcol(void)
+{
+	putpad("\033[39m");
+}
+
+static void tcap_reset_bcol(void)
+{
+	putpad("\033[49m");
 }
 #endif
 

@@ -27,10 +27,6 @@
 
 struct video {
 	int v_flag;		/* Flags */
-#if	COLOR
-	int v_rfcolor;		/* requested forground color */
-	int v_rbcolor;		/* requested background color */
-#endif
 	struct text v_text[1];	/* Screen data. */
 };
 
@@ -108,10 +104,6 @@ void vtinit(void)
 	for (i = 0; i < term.t_mrow; ++i) {
 		vp = xmalloc(sizeof(struct video) + term.t_mcol*sizeof(struct text));
 		vp->v_flag = 0;
-#if	COLOR
-		vp->v_rfcolor = gfcolor;
-		vp->v_rbcolor = gbcolor;
-#endif
 		vscreen[i] = vp;
 #if	MEMMAP == 0 || SCROLLCODE
 		vp = xmalloc(sizeof(struct video) + term.t_mcol*sizeof(struct text));
@@ -393,12 +385,6 @@ int update(int force)
 	/* update the virtual screen to the physical screen */
 	updupd(force);
 
-#if COLOR
-	/* reset the foreground and background color */
-	TTforg(gfcolor);
-	TTbacg(gbcolor);
-#endif
-
 	/* update the cursor and flush the buffers */
 	movecursor(currow, curcol - lbound);
 	TTflush();
@@ -560,10 +546,6 @@ static void updone(struct window *wp)
 			show_line(lp);
 			lp = lforw(lp);
 		}
-#if	COLOR
-		vscreen[sline]->v_rfcolor = wp->w_fcolor;
-		vscreen[sline]->v_rbcolor = wp->w_bcolor;
-#endif
 		vteeol();
 		++sline;
 #if	COLOR
@@ -611,10 +593,6 @@ static void updall(struct window *wp)
 		}
 
 		/* on to the next one */
-#if	COLOR
-		vscreen[sline]->v_rfcolor = wp->w_fcolor;
-		vscreen[sline]->v_rbcolor = wp->w_bcolor;
-#endif
 		vteeol();
 		++sline;
 	}
@@ -709,7 +687,7 @@ void updgar(void)
 
 	for (i = 0; i < term.t_nrow; ++i) {
 		vscreen[i]->v_flag |= VFCHG;
-#if	REVSTA | COLOR
+#if	REVSTA
 		vscreen[i]->v_flag &= ~VFREV;
 #endif
 #if	MEMMAP == 0 || SCROLLCODE
@@ -1064,8 +1042,9 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 	cp2 = &vp2->v_text[0];
 
 #if	COLOR
-	TTforg(vp1->v_rfcolor);
-	TTbacg(vp1->v_rbcolor);
+	/* reset the foreground and background color */
+	TTreforg();
+	TTrebacg();
 #endif
 
 #if	REVSTA | COLOR
@@ -1090,14 +1069,14 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 #if COLOR
 				if (cp1->t_fcolor != last_fg) {
 					if (cp1->t_fcolor == CLR_NONE)
-						TTforg(vp1->v_rfcolor);
+						TTreforg();
 					else
 						TTforg(cp1->t_fcolor);
 					last_fg = cp1->t_fcolor;
 				}
 				if (cp1->t_bcolor != last_bg) {
 					if (cp1->t_bcolor == CLR_NONE)
-						TTbacg(vp1->v_rbcolor);
+						TTrebacg();
 					else
 						TTbacg(cp1->t_bcolor);
 					last_bg = cp1->t_bcolor;
@@ -1194,14 +1173,14 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 #if COLOR
 			if (cp1->t_fcolor != last_fg) {
 				if (cp1->t_fcolor == CLR_NONE)
-					TTforg(vp1->v_rfcolor);
+					TTreforg();
 				else
 					TTforg(cp1->t_fcolor);
 				last_fg = cp1->t_fcolor;
 			}
 			if (cp1->t_bcolor != last_bg) {
 				if (cp1->t_bcolor == CLR_NONE)
-					TTbacg(vp1->v_rbcolor);
+					TTrebacg();
 				else
 					TTbacg(cp1->t_bcolor);
 				last_bg = cp1->t_bcolor;
@@ -1253,8 +1232,6 @@ static void modeline(struct window *wp)
 	vscreen[n]->v_flag |= VFCHG | VFREQ | VFCOL;	/* Redraw next time. */
 #if	COLOR
 	hi_enable = FALSE;
-	vscreen[n]->v_rfcolor = wp->w_bcolor;	/* black on */
-	vscreen[n]->v_rbcolor = wp->w_fcolor;	/* white..... */
 #endif
 	vtmove(n, 0);		/* Seek to right line. */
 	if (wp == curwp)	/* mark the current buffer */
@@ -1456,8 +1433,8 @@ void mlerase(void)
 		return;
 
 #if	COLOR
-	TTforg(gfcolor);
-	TTbacg(gbcolor);
+	TTreforg();
+	TTrebacg();
 #endif
 	if (eolexist == TRUE)
 		TTeeol();
@@ -1492,8 +1469,8 @@ void mlwrite(const char *fmt, ...)
 	}
 #if	COLOR
 	/* set up the proper colors for the command line */
-	TTforg(gfcolor);
-	TTbacg(gbcolor);
+	TTreforg();
+	TTrebacg();
 #endif
 
 	/* if we can not erase to end-of-line, do it manually */

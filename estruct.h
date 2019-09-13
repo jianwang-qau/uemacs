@@ -131,7 +131,7 @@
 #define ADDCR	0  /* ajout d'un CR en fin de chaque ligne (ST520) */
 #define	NBRACE	1  /* new style brace matching command             */
 
-#define	REVSTA	0  /* Status line appears in reverse video         */
+#define	REVSTA	1  /* Status line appears in reverse video         */
 #define	COLOR	1  /* color commands and windows                   */
 
 #ifndef	AUTOCONF
@@ -549,6 +549,8 @@ struct terminal {
 #if	COLOR
 	void (*t_setfor) (int);	/* set forground color          */
 	void (*t_setback) (int);/* set background color         */
+	void (*t_resetfor) (void);	/* reset forground color        */
+	void (*t_resetback) (void);	/* reset background color       */
 #endif
 #if     SCROLLCODE
 	void (*t_scroll)(int, int,int);	/* scroll a region of the screen */
@@ -574,6 +576,8 @@ struct terminal {
 #if	COLOR
 #define	TTforg		(*term.t_setfor)
 #define	TTbacg		(*term.t_setback)
+#define	TTreforg	(*term.t_resetfor)
+#define	TTrebacg	(*term.t_resetback)
 #endif
 #if SCROLLCODE
 #define TTscroll	(*term.t_scroll)
