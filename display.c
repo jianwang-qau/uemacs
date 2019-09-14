@@ -1198,6 +1198,11 @@ static int updateline(int row, struct video *vp1, struct video *vp2)
 	}
 
 	if (cp5 != cp3) {	/* Erase. */
+#if	COLOR
+		/* reset the foreground and background color */
+		TTreforg();
+		TTrebacg();
+#endif
 		TTeeol();
 		while (cp1 != cp3)
 			*cp2++ = *cp1++;
