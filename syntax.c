@@ -128,6 +128,7 @@ static hashtab_T keywtab;
 
 /* syntax highlight flag */
 int hi_mcomment;		/* multi line comment */
+static int hi_char;		/* char */
 static int hi_sstring;		/* single line string */
 static int hi_scomment;		/* single line comment */
 static int hi_include;		/* #include */
@@ -135,6 +136,7 @@ static int hi_macro;		/* macro */
 static int hi_preproc_if;	/* #if */
 static int hi_preproc;		/* preproc */
 
+static int hi_char_idx;		/* char index */
 static int hi_mcomment_idx;	/* multi line comment index */
 static int hi_pound_idx;	/* # index */
 static int hi_less_idx;		/* #include < index */
@@ -204,6 +206,7 @@ void syntax_specialkey(struct text *v_text, int start, int len)
 /* syntax highlight line init for c */
 void syntax_c_line_init()
 {
+	hi_char = FALSE;
 	hi_sstring = FALSE;
 	hi_scomment = FALSE;
 	hi_include = FALSE;
@@ -211,6 +214,7 @@ void syntax_c_line_init()
 	hi_preproc_if = FALSE;
 	hi_preproc = FALSE;
 
+	hi_char_idx = -1;
 	hi_mcomment_idx = -1;
 	hi_pound_idx = -1;
 	hi_less_idx = -1;
@@ -273,12 +277,41 @@ void syntax_c_handle(struct text *v_text, int vtcol)
 		ret = syntax_c_common(v_text, vtcol);
 		if (ret == FALSE)
 			v_text[vtcol].t_fcolor = preprocfg;
+	} else if (c == '\'') {
+		if (hi_char == FALSE) {
+			if (hi_sstring == FALSE) {
+				hi_char = TRUE;
+				hi_char_idx = vtcol;
+			} else {
+				if (v_text[vtcol - 1].t_char == '\\') {
+					v_text[vtcol - 1].t_fcolor = speccharfg;
+					v_text[vtcol].t_fcolor = speccharfg;
+				}
+				else
+					v_text[vtcol].t_fcolor = stringfg;
+			}
+		} else {
+			if (v_text[vtcol - 1].t_char != '\\') {
+				int delta = vtcol - hi_char_idx;
+				if (delta == 2) {
+					hi_char = FALSE;
+					syn_fcolor(v_text, hi_char_idx, vtcol, stringfg);
+				} else if (delta == 3 &&
+					v_text[vtcol - 2].t_char == '\\') {
+					hi_char = FALSE;
+					syn_fcolor(v_text, hi_char_idx, vtcol, speccharfg);
+				} else
+					hi_char_idx = vtcol;
+			}
+		}
 	} else if (c == '"') {
 		if (hi_sstring == FALSE) {
-			if (hi_pound_idx >= 0)
-				syn_include(v_text, vtcol);
-			hi_sstring = TRUE;
-			v_text[vtcol].t_fcolor = stringfg;
+			if (hi_char == FALSE) {
+				if (hi_pound_idx >= 0)
+					syn_include(v_text, vtcol);
+				hi_sstring = TRUE;
+				v_text[vtcol].t_fcolor = stringfg;
+			}
 		} else {
 			if (v_text[vtcol - 1].t_char != '\\' ||
 				hi_include == TRUE) {
