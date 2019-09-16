@@ -370,6 +370,10 @@ int update(int force)
 	/* recalc the current hardware cursor location */
 	updpos();
 
+#if	COLOR
+	updmatch();
+#endif
+
 #if	MEMMAP && ! SCROLLCODE
 	/* update the cursor and flush the buffers */
 	movecursor(currow, curcol - lbound);
@@ -637,6 +641,108 @@ void updpos(void)
 	} else
 		lbound = 0;
 }
+
+#if	COLOR
+#define CLR_MATCH	0x06989A
+
+/*
+ * updmatch:
+ *	highlight match synbols: {}()[]
+ */
+void updmatch(void)
+{
+	static int lastrow1 = -1;
+	static int lastcol1 = -1;
+	static int lastrow2 = -1;
+	static int lastcol2 = -1;
+
+	if (lastrow1 != -1 && lastcol1 != -1) {
+		vscreen[lastrow1]->v_text[lastcol1].t_bcolor = CLR_NONE;
+		vscreen[lastrow1]->v_flag |= VFCHG;
+		lastrow1 = -1;
+		lastcol1 = -1;
+	}
+
+	if (lastrow2 != -1 && lastcol2 != -1) {
+		vscreen[lastrow2]->v_text[lastcol2].t_bcolor = CLR_NONE;
+		vscreen[lastrow2]->v_flag |= VFCHG;
+		lastrow2 = -1;
+		lastcol2 = -1;
+	}
+
+	struct text *tp = &vscreen[currow]->v_text[curcol];
+	unicode_t c = tp->t_char;
+	if ((c == '{' || c == '(' || c == '[') &&
+	    tp->t_fcolor == CLR_NONE) {
+		tp->t_bcolor = CLR_MATCH;
+		vscreen[currow]->v_flag |= VFCHG;
+		lastrow1 = currow;
+		lastcol1 = curcol;
+
+		int tmprow = currow;
+		int tmpcol = curcol + 1;
+
+		while (tmprow < curwp->w_toprow + curwp->w_ntrows) {
+			while (tmpcol < term.t_mcol) {
+				struct text *tmptp = &vscreen[tmprow]->v_text[tmpcol];
+				unicode_t tmpc = tmptp->t_char;
+				if (tmpc == EOLCH)
+					break;
+				if (((c == '{' && tmpc == '}') ||
+				    (c == '(' && tmpc == ')') ||
+				    (c == '[' && tmpc == ']')) && tmptp->t_fcolor == CLR_NONE) {
+					tmptp->t_bcolor = CLR_MATCH;
+					vscreen[tmprow]->v_flag |= VFCHG;
+					lastrow2 = tmprow;
+					lastcol2 = tmpcol;
+					break;
+				}
+				tmpcol++;
+			}
+
+			if (lastrow2 != -1 && lastcol2 != -1)
+				break;
+			tmprow++;
+			tmpcol = 0;
+		}
+	} else if ((c == '}' || c == ')' || c == ']') &&
+	    tp->t_fcolor == CLR_NONE) {
+		tp->t_bcolor = CLR_MATCH;
+		vscreen[currow]->v_flag |= VFCHG;
+		lastrow1 = currow;
+		lastcol1 = curcol;
+
+		int tmprow = currow;
+		int tmpcol = curcol - 1;
+
+		while (tmprow >= curwp->w_toprow) {
+			while (tmpcol >= 0) {
+				struct text *tmptp = &vscreen[tmprow]->v_text[tmpcol];
+				unicode_t tmpc = tmptp->t_char;
+				if (tmpc == EOLCH) {
+					tmpcol--;
+					continue;
+				}
+				if (((tmpc == '{' && c == '}') ||
+				    (tmpc == '(' && c == ')') ||
+				    (tmpc == '[' && c == ']')) && tmptp->t_fcolor == CLR_NONE) {
+					tmptp->t_bcolor = CLR_MATCH;
+					vscreen[tmprow]->v_flag |= VFCHG;
+					lastrow2 = tmprow;
+					lastcol2 = tmpcol;
+					break;
+				}
+				tmpcol--;
+			}
+
+			if (lastrow2 != -1 && lastcol2 != -1)
+				break;
+			tmprow--;
+			tmpcol = term.t_mcol -1;
+		}
+	}
+}
+#endif
 
 /*
  * upddex:

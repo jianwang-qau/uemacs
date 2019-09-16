@@ -127,6 +127,9 @@ extern void vtmove(int row, int col);
 extern int upscreen(int f, int n);
 extern int update(int force);
 extern void updpos(void);
+#if COLOR
+extern void updmatch(void);
+#endif
 extern void upddex(void);
 extern void updgar(void);
 extern int updupd(int force);
