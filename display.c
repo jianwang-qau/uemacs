@@ -163,6 +163,8 @@ void vtmove(int row, int col)
 	vtcol = col;
 }
 
+static int b_mode;
+
 /*
  * Write a character to the virtual screen. The virtual row and
  * column are updated. If we are not yet on left edge, don't print
@@ -246,7 +248,7 @@ static void vtputc(int c)
 
 #if COLOR
 	/* syntax highlight */
-	if (hi_enable == TRUE && (curbp->b_mode & MDCMOD) != 0) {
+	if (hi_enable == TRUE && (b_mode & MDCMOD) != 0) {
 		syntax_c_handle(vp->v_text, vtcol);
 	}
 #endif
@@ -341,6 +343,8 @@ int update(int force)
 	wp = wheadp;
 	while (wp != NULL) {
 		if (wp->w_flag) {
+			b_mode = wp->w_bufp->b_mode;
+
 			/* if the window has changed, service it */
 			reframe(wp);	/* check the framing */
 #if SCROLLCODE
@@ -493,7 +497,7 @@ static void show_line(struct line *lp)
 {
 #if COLOR
 	hi_enable = TRUE;
-	if ((curbp->b_mode & MDCMOD) != 0)
+	if ((b_mode & MDCMOD) != 0)
 		syntax_c_line_init();
 #endif
 	int i = 0, len = llength(lp);
@@ -504,7 +508,7 @@ static void show_line(struct line *lp)
 		vtputc(c);
 	}
 #if COLOR
-	if ((curbp->b_mode & MDCMOD) != 0)
+	if ((b_mode & MDCMOD) != 0)
 		syntax_c_line_end(vscreen[vtrow]->v_text, vtcol);
 #endif
 }
@@ -531,14 +535,14 @@ static void updone(struct window *wp)
 
 	endrow = sline + 1;
 #if COLOR
-	if ((wp->w_bufp->b_mode & MDCMOD) != 0) {
+	if ((b_mode & MDCMOD) != 0) {
 		hi_mcomment = lp->l_mcomment;
 		endrow = wp->w_toprow + wp->w_ntrows;
 	}
 #endif
 	while (sline < endrow) {
 #if	COLOR
-		if ((wp->w_bufp->b_mode & MDCMOD) != 0)
+		if ((b_mode & MDCMOD) != 0)
 			lp->l_mcomment = hi_mcomment;
 #endif
 		/* and update the virtual line */
@@ -553,7 +557,7 @@ static void updone(struct window *wp)
 		vteeol();
 		++sline;
 #if	COLOR
-		if ((wp->w_bufp->b_mode & MDCMOD) != 0 && sline < endrow) {
+		if ((b_mode & MDCMOD) != 0 && sline < endrow) {
 			if (lp->l_mcomment == hi_mcomment)
 				break;
 		}
@@ -561,7 +565,7 @@ static void updone(struct window *wp)
 	}
 
 #if	COLOR
-	if ((wp->w_bufp->b_mode & MDCMOD) != 0 && sline == endrow)
+	if ((b_mode & MDCMOD) != 0 && sline == endrow)
 		mcomment_update_state(lp, wp->w_bufp->b_linep, hi_mcomment);
 #endif
 }
@@ -581,7 +585,7 @@ static void updall(struct window *wp)
 	lp = wp->w_linep;
 	sline = wp->w_toprow;
 #if	COLOR
-	if ((wp->w_bufp->b_mode & MDCMOD) != 0)
+	if ((b_mode & MDCMOD) != 0)
 		hi_mcomment = lp->l_mcomment;
 #endif
 	while (sline < wp->w_toprow + wp->w_ntrows) {
