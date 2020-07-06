@@ -134,6 +134,7 @@ static int hi_scomment;		/* single line comment */
 static int hi_include;		/* #include */
 static int hi_macro;		/* macro */
 static int hi_preproc_if;	/* #if */
+static int hi_preproc_else;	/* #else */
 static int hi_preproc;		/* preproc */
 
 static int hi_char_idx;		/* char index */
@@ -212,6 +213,7 @@ void syntax_c_line_init()
 	hi_include = FALSE;
 	hi_macro = FALSE;
 	hi_preproc_if = FALSE;
+	hi_preproc_else = FALSE;
 	hi_preproc = FALSE;
 
 	hi_char_idx = -1;
@@ -241,7 +243,7 @@ static int syntax_c_common(struct text *v_text, int vtcol)
 		ret = TRUE;
 	} else if (is_separator(c)) {
 		if (hi_nonempty_idx >= 0)
-			ret = syn_other(v_text, vtcol);
+			syn_other(v_text, vtcol);
 		hi_nonempty_idx = -1;
 	}
 	return ret;
@@ -274,6 +276,10 @@ void syntax_c_handle(struct text *v_text, int vtcol)
 		if (ret == FALSE)
 			v_text[vtcol].t_fcolor = macrofg;
 	} else if (hi_preproc_if == TRUE) {
+		ret = syntax_c_common(v_text, vtcol);
+		if (ret == FALSE)
+			v_text[vtcol].t_fcolor = preprocfg;
+	} else if (hi_preproc_else == TRUE) {
 		ret = syntax_c_common(v_text, vtcol);
 		if (ret == FALSE)
 			v_text[vtcol].t_fcolor = preprocfg;
@@ -429,18 +435,21 @@ static void syn_preproc(struct text *v_text, int vtcol)
 	if (idx == IDX_MACRO) {
 		fcolor = arr_color[idx].fcolor;
 		hi_macro = TRUE;
+		hi_nonempty_idx = -1;
 	} else if (idx == IDX_PREPROC_IF) {
 		fcolor = arr_color[idx].fcolor;
 		hi_preproc_if = TRUE;
-		hi_nonempty_idx = -1;
-		end = vtcol;
-	} else if (idx == IDX_PREPROC_ELSE)
+	} else if (idx == IDX_PREPROC_ELSE) {
 		fcolor = arr_color[idx].fcolor;
+		hi_preproc_else = TRUE;
+		hi_nonempty_idx = -1;
+	}
 
 	if (fcolor != CLR_NONE) {
 		v_text[hi_pound_idx].t_fcolor = fcolor;
 		syn_fcolor(v_text, begin, end, fcolor);
 		hi_preproc = TRUE;
+		end = vtcol;
 	}
 }
 
@@ -600,7 +609,7 @@ static int is_char_in(int c, char *str)
 
 static int is_separator(int c)
 {
-	static char *str = " (){}[];,>=<+-*/%&|";
+	static char *str = " (){}[];,>=<+-*/%&|~";
 	return is_char_in(c, str);
 }
 
